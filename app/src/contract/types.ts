@@ -21,6 +21,8 @@ export type Command =
   | { type: "Prev" }
   | { type: "GetState" }
   | { type: "SeekUnit"; unit: number }
+  /** Jump to the sentence + word containing a document byte offset (tap-to-seek). */
+  | { type: "SeekByte"; byte: number }
   /**
    * A word-boundary report from the platform TTS engine.
    * `utf16Offset` is a UTF-16 offset within the current utterance — the raw

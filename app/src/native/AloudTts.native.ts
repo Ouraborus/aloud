@@ -38,6 +38,7 @@ export const nativeAloudTts: AloudTts = {
   next: (traceId) => AloudTtsNative.next(traceId),
   prev: (traceId) => AloudTtsNative.prev(traceId),
   seekUnit: (unit, traceId) => AloudTtsNative.seekUnit(unit, traceId),
+  seekByte: (byte, traceId) => AloudTtsNative.seekByte(byte, traceId),
   release: () => AloudTtsNative.release(),
   subscribe(listener: SnapshotListener) {
     const sub = emitter.addListener("AloudSnapshot", (snap: Snapshot) =>

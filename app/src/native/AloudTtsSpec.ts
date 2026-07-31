@@ -28,6 +28,8 @@ export interface AloudTtsCommands {
   next(traceId: string): Promise<Snapshot>;
   prev(traceId: string): Promise<Snapshot>;
   seekUnit(unit: number, traceId: string): Promise<Snapshot>;
+  /** Jump to the sentence + word containing a document byte offset (tap-to-seek). */
+  seekByte(byte: number, traceId: string): Promise<Snapshot>;
   /** Stop the engine, release the audio session and free the core session. */
   release(): Promise<void>;
 }

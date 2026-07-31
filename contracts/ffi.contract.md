@@ -43,6 +43,7 @@ Every command is a JSON object tagged by `type`. Schema:
 | `Next` | — | Next sentence (finishes if last) |
 | `Prev` | — | Previous sentence |
 | `SeekUnit` | `unit: u32` | Jump to sentence index |
+| `SeekByte` | `byte: u32` | Jump to the sentence + word containing a document byte offset (tap-to-seek) |
 | `WordBoundary` | `utf16Offset: u32` | Word-boundary report from the platform TTS engine |
 | `GetState` | — | Return snapshot, mutate nothing |
 

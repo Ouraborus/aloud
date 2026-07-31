@@ -118,6 +118,18 @@ final class AloudTtsModule: RCTEventEmitter {
         }
     }
 
+    @objc(seekByte:traceId:resolver:rejecter:)
+    func seekByte(_ byte: NSNumber, traceId: String,
+                  resolver resolve: RCTPromiseResolveBlock,
+                  rejecter reject: RCTPromiseRejectBlock) {
+        run(traceId, resolve, reject) { core in
+            self.synthesizer.stopSpeaking(at: .immediate)
+            let snap = try core.dispatch(.seekByte(byte: byte.intValue))
+            self.speakCurrentUtterance(snap)
+            return snap
+        }
+    }
+
     @objc(release:rejecter:)
     func release(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
         synthesizer.stopSpeaking(at: .immediate)

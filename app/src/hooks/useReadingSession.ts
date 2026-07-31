@@ -46,5 +46,6 @@ export function useReadingSession(documentText: string) {
     next: vm.next,
     prev: vm.prev,
     seekUnit: vm.seekUnit,
+    seekByte: vm.seekByte,
   };
 }

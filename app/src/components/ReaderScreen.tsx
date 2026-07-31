@@ -25,7 +25,7 @@ import { useReadingSession } from "../hooks/useReadingSession";
 const READER_SOURCE = require("../webview/reader.html");
 
 export function ReaderScreen({ document: doc }: { document: string }) {
-  const { viewState, play, pause, next, prev } = useReadingSession(doc);
+  const { viewState, play, pause, next, prev, seekByte } = useReadingSession(doc);
   const webRef = useRef<WebView>(null);
   const playButtonRef = useRef<View>(null);
 
@@ -35,7 +35,11 @@ export function ReaderScreen({ document: doc }: { document: string }) {
     if (msg.type === "ready") {
       post({ type: "render", text: doc });
     }
-    // `wordTapped` is consumed by the tap-to-seek feature.
+    if (msg.type === "wordTapped" && typeof msg.byte === "number") {
+      // Tap-to-seek: the WebView reports the tapped document byte; the core
+      // resolves it to a sentence + word (no re-tokenising in JS).
+      void seekByte(msg.byte);
+    }
   };
 
   const post = (message: unknown) =>
