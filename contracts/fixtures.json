@@ -1,0 +1,29 @@
+{
+  "description": "Shared golden fixtures. Every language binding decodes/encodes these exact values in its contract test, so all four stay byte-for-byte in agreement.",
+  "document": "Hello world. Bye.",
+  "cases": [
+    {
+      "name": "play_lights_first_word",
+      "command": { "type": "Play" },
+      "expect": {
+        "status": "playing",
+        "unit": 0,
+        "unitCount": 2,
+        "token": 0,
+        "tokenCount": 2,
+        "utterance": "Hello world.",
+        "highlight": { "start": 0, "end": 5 }
+      }
+    },
+    {
+      "name": "word_boundary_moves_highlight",
+      "command": { "type": "WordBoundary", "utf16Offset": 6 },
+      "expect_highlight": { "start": 6, "end": 11 }
+    },
+    {
+      "name": "seek_out_of_range_errors",
+      "command": { "type": "SeekUnit", "unit": 99 },
+      "expect_error_code": "UNIT_OUT_OF_RANGE"
+    }
+  ]
+}

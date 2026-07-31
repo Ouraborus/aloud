@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Ouraborus/aloud/contracts/commands.schema.json",
+  "title": "Aloud FFI protocol v1",
+  "description": "Machine-checkable schema for the JSON that crosses the Rust FFI boundary. All four language bindings validate against this in CI.",
+  "definitions": {
+    "Command": {
+      "oneOf": [
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "Play" } }, "additionalProperties": false },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "Pause" } }, "additionalProperties": false },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "Next" } }, "additionalProperties": false },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "Prev" } }, "additionalProperties": false },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "GetState" } }, "additionalProperties": false },
+        {
+          "type": "object",
+          "required": ["type", "unit"],
+          "properties": { "type": { "const": "SeekUnit" }, "unit": { "type": "integer", "minimum": 0 } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "utf16Offset"],
+          "properties": { "type": { "const": "WordBoundary" }, "utf16Offset": { "type": "integer", "minimum": 0 } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Highlight": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "Snapshot": {
+      "type": "object",
+      "required": ["status", "unit", "unitCount", "token", "tokenCount", "utterance", "highlight"],
+      "properties": {
+        "status": { "enum": ["idle", "playing", "paused", "finished"] },
+        "unit": { "type": "integer", "minimum": 0 },
+        "unitCount": { "type": "integer", "minimum": 0 },
+        "token": { "type": "integer", "minimum": 0 },
+        "tokenCount": { "type": "integer", "minimum": 0 },
+        "utterance": { "type": "string" },
+        "highlight": { "oneOf": [{ "$ref": "#/definitions/Highlight" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "enum": ["INVALID_COMMAND", "UNIT_OUT_OF_RANGE", "INVALID_UTF8", "NULL_POINTER"] },
+            "message": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Response": {
+      "oneOf": [{ "$ref": "#/definitions/Snapshot" }, { "$ref": "#/definitions/ErrorEnvelope" }]
+    }
+  }
+}
