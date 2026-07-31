@@ -1,0 +1,20 @@
+# cbindgen config for regenerating a C header from the Rust FFI, used to VERIFY
+# the hand-written include/aloud_core.h in CI rather than to replace it:
+#
+#   cbindgen --config cbindgen.toml --crate aloud_core --output target/generated.h
+#   diff <(strip_comments include/aloud_core.h) <(strip_comments target/generated.h)
+#
+# A drift between the generated and canonical header fails the build — the same
+# "make signature mismatch a test failure, not a runtime crash" stance as the
+# JSON contract tests.
+language = "C"
+include_guard = "ALOUD_CORE_H"
+autogen_warning = "/* GENERATED for verification only; edit include/aloud_core.h. */"
+cpp_compat = true
+style = "type"
+
+[export]
+prefix = ""
+
+[parse]
+parse_deps = false

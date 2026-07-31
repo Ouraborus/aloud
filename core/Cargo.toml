@@ -1,0 +1,26 @@
+[package]
+name = "aloud_core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+description = "Shared read-aloud engine: text segmentation, reading plan, and reading-position state machine, exposed over a narrow C ABI."
+license = "MIT"
+repository = "https://github.com/Ouraborus/aloud"
+
+# Build both a C-ABI dynamic/static library (for iOS/Android FFI) and an rlib
+# (so the crate can be unit-tested and reused from other Rust code).
+[lib]
+name = "aloud_core"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# Nothing extra: tests use std + serde_json only, to keep CI fast and hermetic.
+
+[profile.release]
+lto = true
+opt-level = "z"      # optimise for size: this ships inside a mobile binary.
+strip = true
