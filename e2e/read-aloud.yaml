@@ -1,0 +1,44 @@
+# Maestro E2E — the golden read-aloud flow.
+#
+# One stable, high-value path exercised on a real device/emulator: load an
+# article, start playback, confirm the highlight advances, pause, and finish.
+# Kept deliberately small (see docs/testing-strategy.md) — E2E is here to catch a
+# dead bridge or broken wiring, not to re-test core logic that cargo already does.
+#
+# Run:  maestro test e2e/read-aloud.yaml
+appId: com.aloud.example
+---
+- launchApp:
+    clearState: true
+
+# The reader canvas and primary control are present.
+- assertVisible:
+    id: "reader-canvas"
+- assertVisible:
+    text: "Play"
+
+# Start playback; the control flips to Pause and progress reflects sentence 1.
+- tapOn:
+    text: "Play"
+- assertVisible:
+    text: "Pause"
+- assertVisible:
+    text: "Sentence 1 of .*"
+
+# The highlight advances: the marked word changes as speech proceeds.
+- assertVisible:
+    id: "aloud-current"
+- waitForAnimationToEnd:
+    timeout: 4000
+
+# Step forward a sentence via the accessible next control.
+- tapOn:
+    accessibilityText: "Next sentence"
+- assertVisible:
+    text: "Sentence 2 of .*"
+
+# Pause and confirm state.
+- tapOn:
+    text: "Pause"
+- assertVisible:
+    text: "Play"
