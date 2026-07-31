@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Two fast, hermetic jobs run on every push/PR. The device-toolchain jobs
+# (xcframework build + XCTest, cargo-ndk + JUnit, Maestro E2E) run on macOS
+# runners and are intentionally out of the fast path — see docs/testing-strategy.md.
+jobs:
+  core:
+    name: Rust core (fmt · clippy · test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --all-targets
+
+  contract-header:
+    name: FFI symbol parity (header ⟷ Rust exports)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The C header and the Rust #[no_mangle] exports declare the same symbols
+        run: |
+          # Deterministic parity check: the set of function names in the canonical
+          # C header must equal the set of extern "C" exports in the core. A new
+          # export without a header entry (or vice-versa) fails here — a contract
+          # drift caught in CI, not a runtime crash. (cbindgen.toml is provided for
+          # local, richer regeneration; see contracts/README.md.)
+          header_syms=$(grep -oE 'aloud_[a-z_]+ *\(' core/include/aloud_core.h \
+                        | grep -oE 'aloud_[a-z_]+' | sort -u)
+          rust_syms=$(grep -oE 'extern "C" fn aloud_[a-z_]+' core/src/ffi.rs \
+                      | grep -oE 'aloud_[a-z_]+' | sort -u)
+          echo "Header symbols:"; echo "$header_syms"
+          echo "Rust exports:";   echo "$rust_syms"
+          if [ "$header_syms" != "$rust_syms" ]; then
+            echo "::error::FFI symbol set differs between core/include/aloud_core.h and core/src/ffi.rs"
+            diff <(echo "$header_syms") <(echo "$rust_syms") || true
+            exit 1
+          fi
+          echo "OK: header and exports agree."
+
+  app:
+    name: TypeScript (test · typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Unit + contract tests
+        run: npm test
+      - name: Type-check
+        run: npm run typecheck

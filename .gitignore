@@ -1,0 +1,31 @@
+# Rust
+/core/target/
+**/*.rs.bk
+Cargo.lock  # example lib crate: lockfile not committed for the core
+
+# Node / RN
+node_modules/
+app/coverage/
+*.log
+.npm/
+
+# Native build outputs
+*.xcframework/
+ios/Pods/
+ios/build/
+DerivedData/
+android/.gradle/
+android/build/
+android/src/main/jniLibs/
+*.so
+*.a
+*.aar
+
+# Generated FFI header (verification artifact)
+/core/target/generated.h
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
