@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <title>Aloud reader canvas</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --highlight-bg: #ffe08a;
+        --highlight-fg: #1a1a1a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121212;
+          --fg: #ededed;
+          --highlight-bg: #7a5c00;
+          --highlight-fg: #ffffff;
+        }
+      }
+      html, body { margin: 0; background: var(--bg); color: var(--fg); }
+      #article {
+        font: 500 1.25rem/1.7 -apple-system, Roboto, system-ui, sans-serif;
+        padding: 1.25rem 1.25rem 6rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      /* The highlight is decorative (the audio conveys progress). We keep a
+         strong contrast ratio for low-vision users and respect reduced motion. */
+      mark.aloud-word {
+        background: var(--highlight-bg);
+        color: var(--highlight-fg);
+        border-radius: 0.2em;
+        box-decoration-break: clone;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        #article { scroll-behavior: smooth; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The article text is the accessible content. The visual highlight never
+         changes what a screen reader reads, because during playback our own TTS
+         engine is the speech source, not the WebView. -->
+    <article id="article" aria-live="off"></article>
+    <script src="reader.js"></script>
+  </body>
+</html>

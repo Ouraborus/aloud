@@ -1,0 +1,17 @@
+{
+  // Fast, device-independent type-check for CI. It covers the modules that are
+  // unit-tested in plain Node (the ViewModel, contract types, a11y policy,
+  // tracing, the native port interface) plus the test suite. The RN shell files
+  // (components, hooks, the concrete native adapter) are type-checked by the
+  // React Native app toolchain, which has react/react-native installed.
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/contract/**/*.ts",
+    "src/core/**/*.ts",
+    "src/a11y/announce.ts",
+    "src/logging/**/*.ts",
+    "src/native/AloudTtsSpec.ts",
+    "__tests__/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
