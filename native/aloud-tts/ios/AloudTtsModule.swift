@@ -23,6 +23,8 @@ final class AloudTtsModule: RCTEventEmitter {
     private var core: AloudCore?
     private var hasListeners = false
     private var activeTraceId = "-"
+    /// AVSpeechUtterance.rate to apply to future utterances (see `setRate`).
+    private var currentRate = AVSpeechUtteranceDefaultSpeechRate
 
     override init() {
         super.init()
@@ -131,6 +133,21 @@ final class AloudTtsModule: RCTEventEmitter {
         }
     }
 
+    /// Set the speech-rate multiplier (1.0 = normal). We map it onto Apple's
+    /// rate scale around its default and clamp to the platform's min/max. The new
+    /// rate applies to the next utterance; we do not restart the current one.
+    @objc(setRate:traceId:resolver:rejecter:)
+    func setRate(_ rate: NSNumber, traceId: String,
+                 resolver resolve: RCTPromiseResolveBlock,
+                 rejecter reject: RCTPromiseRejectBlock) {
+        activeTraceId = traceId
+        let mapped = AVSpeechUtteranceDefaultSpeechRate * rate.floatValue
+        currentRate = min(AVSpeechUtteranceMaximumSpeechRate,
+                          max(AVSpeechUtteranceMinimumSpeechRate, mapped))
+        log("setRate", "multiplier=\(rate.floatValue) rate=\(currentRate)")
+        resolve(nil)
+    }
+
     @objc(release:rejecter:)
     func release(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
         synthesizer.stopSpeaking(at: .immediate)
@@ -164,6 +181,7 @@ final class AloudTtsModule: RCTEventEmitter {
         guard snap.status == "playing", !snap.utterance.isEmpty else { return }
         let utterance = AVSpeechUtterance(string: snap.utterance)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = currentRate
         synthesizer.speak(utterance)
     }
 

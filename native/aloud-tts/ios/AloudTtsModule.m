@@ -49,6 +49,11 @@ RCT_EXTERN_METHOD(seekByte:(nonnull NSNumber *)byte
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(setRate:(nonnull NSNumber *)rate
+                  traceId:(NSString *)traceId
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(release:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 

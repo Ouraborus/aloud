@@ -11,8 +11,20 @@ import { ReadingSessionViewModel } from "../src/core/ReadingSessionViewModel";
 import type { AloudTts, SnapshotListener } from "../src/native/AloudTtsSpec";
 import type { Announcer, Announcement } from "../src/a11y/announce";
 import type { Snapshot } from "../src/contract/types";
+import type { PreferenceStore } from "../src/core/ReadingPreferences";
 
 const DOC_UNITS = 2;
+
+/** In-memory preference store for tests. */
+class FakeStore implements PreferenceStore {
+  constructor(private rate: number | null = null) {}
+  async getRate() {
+    return this.rate;
+  }
+  async setRate(rate: number) {
+    this.rate = rate;
+  }
+}
 
 /** A scriptable fake of the native module. */
 class FakeTts implements AloudTts {
@@ -61,6 +73,9 @@ class FakeTts implements AloudTts {
     this.calls.push(`seekByte:${byte}`);
     this.base = { ...this.base, unit: 1, utterance: "Bye." };
     return this.base;
+  }
+  async setRate(rate: number) {
+    this.calls.push(`setRate:${rate}`);
   }
   async release() {
     this.calls.push("release");
@@ -163,5 +178,70 @@ describe("ReadingSessionViewModel", () => {
   it("releases native resources on dispose", async () => {
     await vm.dispose();
     expect(tts.calls).toContain("release");
+  });
+});
+
+describe("ReadingSessionViewModel — reading rate", () => {
+  it("applies a rate change to the engine, persists it, and announces politely", async () => {
+    const tts = new FakeTts();
+    const announcer = new SpyAnnouncer();
+    const store = new FakeStore();
+    const vm = new ReadingSessionViewModel({ tts, announcer, store, logger: () => {} });
+    await vm.load("Hello world.");
+    announcer.announcements = [];
+
+    await vm.setRate(1.5);
+
+    expect(tts.calls).toContain("setRate:1.5");
+    expect(vm.viewState.rate).toBe(1.5);
+    expect(vm.viewState.rateLabel).toBe("1.5×");
+    expect(await store.getRate()).toBe(1.5);
+    expect(announcer.announcements).toEqual([
+      { message: "Speed 1.5×", politeness: "polite" },
+    ]);
+  });
+
+  it("clamps out-of-range rates to the supported bounds", async () => {
+    const tts = new FakeTts();
+    const vm = new ReadingSessionViewModel({
+      tts,
+      announcer: new SpyAnnouncer(),
+      logger: () => {},
+    });
+    await vm.load("Hello world.");
+
+    await vm.setRate(9);
+    expect(vm.viewState.rate).toBe(2); // max
+    await vm.setRate(0.1);
+    expect(vm.viewState.rate).toBe(0.5); // min
+  });
+
+  it("stepRate nudges by one increment", async () => {
+    const tts = new FakeTts();
+    const vm = new ReadingSessionViewModel({
+      tts,
+      announcer: new SpyAnnouncer(),
+      logger: () => {},
+    });
+    await vm.load("Hello world.");
+
+    await vm.stepRate(1);
+    expect(vm.viewState.rate).toBe(1.1);
+    await vm.stepRate(-1);
+    expect(vm.viewState.rate).toBe(1.0);
+  });
+
+  it("restores a persisted rate on load and applies it without announcing", async () => {
+    const tts = new FakeTts();
+    const announcer = new SpyAnnouncer();
+    const store = new FakeStore(1.8);
+    const vm = new ReadingSessionViewModel({ tts, announcer, store, logger: () => {} });
+
+    await vm.load("Hello world.");
+
+    expect(vm.viewState.rate).toBe(1.8);
+    expect(tts.calls).toContain("setRate:1.8");
+    // Restoring a saved preference is silent — no announcement on startup.
+    expect(announcer.announcements).toEqual([]);
   });
 });
