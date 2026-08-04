@@ -29,13 +29,24 @@ Full reasoning: [`docs/architecture.md`](docs/architecture.md) and the
 
 ## Run it
 
-This is an npm workspace: `@aloud/app` (the engine) and `@aloud/aloud-tts` (the
-native module) are real, autolinked packages — not files copied into a demo
-project — and [`example/`](example/) is a runnable host app that depends on
-both. Clone the repo and run it on the iOS Simulator:
+### Fastest path: no mobile toolchain at all
+The reading engine is a plain Rust crate — you can watch it segment a document,
+track reading position, and highlight words (including a multibyte "Café
+música" sentence, proving the UTF-16→UTF-8 mapping live) with nothing but
+`cargo`:
 
 ```bash
 git clone git@github.com:Ouraborus/aloud.git && cd aloud
+cargo run --example read_aloud --manifest-path core/Cargo.toml
+```
+
+### The real app, on the iOS Simulator
+This is an npm workspace: `@aloud/app` (the engine) and `@aloud/aloud-tts` (the
+native module) are real, autolinked packages — not files copied into a demo
+project — and [`example/`](example/) is a runnable host app that depends on
+both.
+
+```bash
 npm install                          # installs the whole workspace at once
 npm run build:core:ios               # cross-compiles core/ -> an xcframework
 cd example/ios && pod install && cd ../..
@@ -90,7 +101,7 @@ native/aloud-tts/   @aloud/aloud-tts — the autolinked native module (Swift/Obj
 example/            @aloud/example — a runnable host app: depends on the two packages above like any consumer would
 scripts/            build-ios-core.sh / build-android-core.sh — compile core/ into what native/aloud-tts vendors
 e2e/                Device E2E flow (Maestro) for the read-aloud path
-docs/                Architecture, ADRs, diagrams, accessibility, debugging, testing
+docs/               Architecture, ADRs, diagrams, accessibility, debugging, testing
 ```
 
 ## Build & test
@@ -99,11 +110,11 @@ Everything that can be verified without a device toolchain is wired into CI and
 runs locally:
 
 ```bash
-# Rust core — 26 unit + integration tests
+# Rust core — 29 unit + integration + invariant tests
 cargo test --manifest-path core/Cargo.toml
 
 # TypeScript engine — ViewModel + cross-language contract tests (plain Node, no device)
-npm install && npm test
+npm install && npm test --workspace=app
 ```
 
 ## What's actually verified vs. reviewed-but-not-compiled
@@ -112,8 +123,8 @@ Being precise about this matters more than claiming everything works:
 
 | Layer | Status |
 |---|---|
-| Rust core (`core/`) | **Compiles, 26 tests pass**, on every push (CI) |
-| TypeScript engine (`app/`) | **Compiles, tests pass, typechecks**, on every push (CI) |
+| Rust core (`core/`) | **Compiles, 29 tests pass**, on every push (CI) |
+| TypeScript engine (`app/`) | **Compiles, 25 tests pass, typechecks**, on every push (CI) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
 | Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
 | Maestro E2E (`e2e/`) | Written, not run here (needs a device/CI runner) |
