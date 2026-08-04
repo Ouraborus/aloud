@@ -58,19 +58,19 @@ jobs:
   app:
     name: TypeScript (test · typecheck)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
+    # `app` is an npm workspace member (see the root package.json), so it has
+    # no lockfile of its own — install from the workspace root, then scope
+    # the actual test/typecheck commands to the app package.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: app/package-lock.json
-      - name: Install
+          cache-dependency-path: package-lock.json
+      - name: Install (whole workspace)
         run: npm ci
       - name: Unit + contract tests
-        run: npm test
+        run: npm test --workspace=app
       - name: Type-check
-        run: npm run typecheck
+        run: npm run typecheck --workspace=app
