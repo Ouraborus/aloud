@@ -2,8 +2,9 @@ import AVFoundation
 import Foundation
 // React ships as a prebuilt Swift-consumable framework module in modern RN
 // (0.79+ / React-Core-prebuilt): `RCTEventEmitter` and friends come from
-// `import React`, not a bridging header. The C-only Rust ABI still needs a
-// bridging header — see AloudTts.podspec's `SWIFT_OBJC_BRIDGING_HEADER`.
+// `import React`, not a bridging header. The C-only Rust ABI is exposed the
+// same way, as a Clang module — see AloudCore.swift's `import AloudCoreFFI`
+// and core/include/module.modulemap.
 import React
 import UIKit
 
