@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import React
 import UIKit
 
 /// The iOS native module. It owns three things and keeps them in step:

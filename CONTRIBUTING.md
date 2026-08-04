@@ -3,6 +3,14 @@
 This project treats git history, tests and the FFI contract as part of the
 product. A few conventions keep cross-layer work tractable.
 
+## The workspace
+The repo root is an npm workspace: `app/` (`@aloud/app`), `native/aloud-tts/`
+(`@aloud/aloud-tts`) and `example/` are real local packages, symlinked into
+`node_modules` by a single `npm install` at the root — not copies of each
+other. If you change something in `app/src`, `example/` picks it up
+immediately (Metro follows the symlink); no copy step, no publish step. See
+the [root README](README.md#run-it) to get it running.
+
 ## Branches & commits
 - **One branch per task**, prefixed by type: `feat/`, `fix/`, `docs/`, `ci/`,
   `refactor/`. Each branch maps to a tracking issue.

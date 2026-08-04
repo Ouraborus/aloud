@@ -1,0 +1,56 @@
+// Gradle module for the AloudTts native module. Autolinked by React Native's
+// Gradle plugin (`react-native.gradle` in the consuming app scans
+// node_modules for a package.json + android/build.gradle pair and adds this
+// as a project dependency automatically) — a consuming app does not edit
+// settings.gradle or app/build.gradle by hand.
+//
+// NOTE ON VERIFICATION: this file was written to the current RN 0.86 / AGP
+// conventions but could not be compiled in the authoring environment (no JDK
+// / Android SDK installed there — see the root README's "what's verified"
+// section). The Kotlin sources themselves are the same code reviewed and
+// exercised in earlier PRs; this is new Gradle plumbing around them.
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+def getExtOrDefault(name, fallback) {
+    (rootProject.ext.has(name) ? rootProject.ext.get(name) : fallback)
+}
+
+android {
+    namespace "com.aloud.tts"
+    compileSdk getExtOrDefault("compileSdkVersion", 35)
+
+    defaultConfig {
+        minSdkVersion getExtOrDefault("minSdkVersion", 24)
+        targetSdkVersion getExtOrDefault("targetSdkVersion", 35)
+    }
+
+    sourceSets {
+        main {
+            // Populated by scripts/build-android-core.sh (cargo-ndk output:
+            // one aloud_core.so per ABI). Not present until that script runs.
+            jniLibs.srcDirs = ["src/main/jniLibs"]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    implementation "com.facebook.react:react-android"
+    // JNA binds the Kotlin side to the Rust core's C ABI (AloudCore.kt) —
+    // the same mechanism `uniffi`-style RN/Rust bridges use.
+    implementation "net.java.dev.jna:jna:5.14.0@aar"
+}

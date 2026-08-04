@@ -1,0 +1,21 @@
+{
+  "name": "aloud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aloud — accessible cross-platform read-aloud reader. npm workspace root: @aloud/app (the reading engine), @aloud/aloud-tts (the native module), and example/ (a runnable host app that depends on both as real packages, not copies).",
+  "license": "MIT",
+  "workspaces": [
+    "app",
+    "native/aloud-tts",
+    "example"
+  ],
+  "scripts": {
+    "test": "npm test --workspace=app",
+    "typecheck": "npm run typecheck --workspace=app",
+    "build:core:ios": "scripts/build-ios-core.sh",
+    "build:core:android": "scripts/build-android-core.sh",
+    "example:ios": "npm run build:core:ios && cd example/ios && bundle exec pod install && cd .. && npm run ios",
+    "example:android": "npm run build:core:android && npm run android --workspace=example",
+    "example:start": "npm start --workspace=example"
+  }
+}

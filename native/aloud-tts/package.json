@@ -1,0 +1,21 @@
+{
+  "name": "@aloud/aloud-tts",
+  "version": "0.1.0",
+  "description": "React Native native module bridging AVSpeechSynthesizer/TextToSpeech and the shared aloud_core Rust engine. Autolinked via CocoaPods (iOS) and Gradle (Android) — a consuming app just installs it, no manual Xcode/Android Studio wiring.",
+  "license": "MIT",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "ios",
+    "android",
+    "AloudTts.podspec",
+    "react-native.config.js",
+    "!ios/AloudCore.xcframework",
+    "!android/src/main/jniLibs"
+  ],
+  "//files": "The xcframework and jniLibs are build OUTPUTS (produced by scripts/build-ios-core.sh / build-android-core.sh from the Rust core), excluded from what npm would publish but present locally once built. See the root README's 'Running the example app' section.",
+  "peerDependencies": {
+    "react-native": ">=0.74"
+  },
+  "//no-codegen": "This registers via the classic RN bridge (RCTEventEmitter / ReactContextBaseJavaModule) matching AloudTtsSpec.ts in @aloud/app, not the new-arch TurboModule codegen — so there is deliberately no `codegenConfig` here."
+}
