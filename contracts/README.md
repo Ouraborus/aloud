@@ -25,7 +25,7 @@ The same command/response fixtures are validated in each language:
 | Rust | `core/src/ffi.rs` (`#[cfg(test)]`) | The core emits schema-valid JSON and round-trips over the C ABI |
 | TS / RN | `app/__tests__/contract.test.ts` | The TS `Command`/`Snapshot` types match the schema; encoder/decoder round-trips |
 | C header | `cbindgen` diff in CI (`core/cbindgen.toml`) | The hand-written header matches the real exported symbols |
-| Swift / Kotlin | `ios/…/ContractTests`, `android/…/ContractTest` (specs) | The native structs decode the shared fixtures |
+| Swift / Kotlin | `native/aloud-tts/ios/…/ContractTests`, `native/aloud-tts/android/…/ContractTest` (specs) | The native structs decode the shared fixtures |
 
 The shared fixtures live in [`fixtures.json`](./fixtures.json) so all four
 languages assert against literally the same bytes.

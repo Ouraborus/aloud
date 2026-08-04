@@ -27,6 +27,27 @@ cross-platform app does, and does it with accessibility as a first-class outcome
 Full reasoning: [`docs/architecture.md`](docs/architecture.md) and the
 [ADRs](docs/adr/).
 
+## Run it
+
+This is an npm workspace: `@aloud/app` (the engine) and `@aloud/aloud-tts` (the
+native module) are real, autolinked packages — not files copied into a demo
+project — and [`example/`](example/) is a runnable host app that depends on
+both. Clone the repo and run it on the iOS Simulator:
+
+```bash
+git clone git@github.com:Ouraborus/aloud.git && cd aloud
+npm install                          # installs the whole workspace at once
+npm run build:core:ios               # cross-compiles core/ -> an xcframework
+cd example/ios && pod install && cd ../..
+npm run example:ios                  # boots the simulator and launches the app
+```
+
+CocoaPods discovers `@aloud/aloud-tts` on its own via standard RN autolinking
+(`use_native_modules!` in `example/ios/Podfile`) — nothing is wired into Xcode
+by hand. See [`native/aloud-tts/`](native/aloud-tts/) for how that's set up,
+and [`example/README.md`](example/README.md) for the Android path and
+troubleshooting.
+
 ## The five layers
 
 ```mermaid
@@ -57,14 +78,19 @@ intents and renders `Snapshot`s streamed up from native. See
 
 ## Repository layout
 
+This is an **npm workspace** — `app/`, `native/aloud-tts/` and `example/` are
+real local packages (symlinked into `node_modules` by `npm install`), not
+copies of each other.
+
 ```
-core/        Rust shared engine (aloud_core) — segmentation, state machine, C ABI + tests
-contracts/   The one FFI contract: C header, JSON schema, shared fixtures, parity strategy
-app/         RN/TypeScript — MVVM ViewModel, a11y, WebView canvas, native port + tests
-ios/         Swift/ObjC native module (TTS + audio session + bridging macros)
-android/     Kotlin native module (TextToSpeech + audio focus + JNA binding)
-e2e/         Device E2E flow (Maestro) for the read-aloud path
-docs/        Architecture, ADRs, diagrams, accessibility, debugging, testing
+core/               Rust shared engine (aloud_core) — segmentation, state machine, C ABI + tests
+contracts/          The one FFI contract: C header, JSON schema, shared fixtures, parity strategy
+app/                @aloud/app — RN/TypeScript engine: MVVM ViewModel, a11y, WebView canvas, native port + tests
+native/aloud-tts/   @aloud/aloud-tts — the autolinked native module (Swift/ObjC + Kotlin) + build scripts' outputs
+example/            @aloud/example — a runnable host app: depends on the two packages above like any consumer would
+scripts/            build-ios-core.sh / build-android-core.sh — compile core/ into what native/aloud-tts vendors
+e2e/                Device E2E flow (Maestro) for the read-aloud path
+docs/                Architecture, ADRs, diagrams, accessibility, debugging, testing
 ```
 
 ## Build & test
@@ -73,17 +99,26 @@ Everything that can be verified without a device toolchain is wired into CI and
 runs locally:
 
 ```bash
-# Rust core — 23 unit + integration tests
+# Rust core — 26 unit + integration tests
 cargo test --manifest-path core/Cargo.toml
 
-# TypeScript — ViewModel + cross-language contract tests
-cd app && npm ci && npm test && npm run typecheck
+# TypeScript engine — ViewModel + cross-language contract tests (plain Node, no device)
+npm install && npm test
 ```
 
-The native iOS/Android builds and the Maestro E2E flow run on their respective
-device toolchains; the Rust core, its C header, the Swift/Kotlin modules and the
-JS are all present and reviewed here. See each layer's README for the
-`xcframework` / `cargo-ndk` packaging steps.
+## What's actually verified vs. reviewed-but-not-compiled
+
+Being precise about this matters more than claiming everything works:
+
+| Layer | Status |
+|---|---|
+| Rust core (`core/`) | **Compiles, 26 tests pass**, on every push (CI) |
+| TypeScript engine (`app/`) | **Compiles, tests pass, typechecks**, on every push (CI) |
+| iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
+| Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
+| Maestro E2E (`e2e/`) | Written, not run here (needs a device/CI runner) |
+
+See each layer's own README for exact commands and caveats.
 
 ## What to read first (for a reviewer)
 

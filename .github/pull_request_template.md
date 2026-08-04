@@ -9,10 +9,11 @@ Closes #
      commit so the boundary is never half-updated in history. -->
 - [ ] Rust core (`core/`)
 - [ ] FFI contract (`contracts/`)
-- [ ] RN / TypeScript (`app/`)
+- [ ] RN / TypeScript engine (`app/`)
 - [ ] WebView canvas (`app/src/webview/`)
-- [ ] iOS native (`ios/`)
-- [ ] Android native (`android/`)
+- [ ] iOS native (`native/aloud-tts/ios/`)
+- [ ] Android native (`native/aloud-tts/android/`)
+- [ ] Example host app (`example/`)
 - [ ] Docs (`docs/`)
 
 ## Contract impact

@@ -1,0 +1,16 @@
+// Turns aloud_core.h into a proper Clang module, importable from Swift as
+// `import AloudCoreFFI`. This ships alongside the header inside
+// AloudCore.xcframework (both live in core/include/, bundled in by
+// `xcodebuild -create-xcframework -headers core/include`).
+//
+// Why a module instead of a bridging header: CocoaPods compiles any pod that
+// contains Swift + `DEFINES_MODULE` as a *framework* target (needed to expose
+// a proper Swift module to consumers), and Xcode's Swift compiler flatly
+// refuses bridging headers on framework targets
+// ("using bridging headers with framework targets is unsupported"). A Clang
+// module has no such restriction and is the idiomatic way a Swift file
+// imports a plain C library.
+module AloudCoreFFI {
+    header "aloud_core.h"
+    export *
+}

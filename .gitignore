@@ -3,23 +3,35 @@
 **/*.rs.bk
 Cargo.lock  # example lib crate: lockfile not committed for the core
 
-# Node / RN
-node_modules/
+# Node / RN (npm workspaces hoist to the root node_modules/, but ignore at
+# every level in case a package ever gets its own)
+**/node_modules/
 app/coverage/
 *.log
 .npm/
 
-# Native build outputs
-*.xcframework/
-ios/Pods/
-ios/build/
+# Native build outputs — produced locally by scripts/build-ios-core.sh and
+# scripts/build-android-core.sh from core/, never checked in.
+**/*.xcframework/
+native/aloud-tts/android/src/main/jniLibs/
+**/*.so
+**/*.a
+**/*.aar
+
+# iOS app build artifacts (example/ios/, and any other Xcode project)
+**/Pods/
+**/*.xcworkspace/
+**/build/
 DerivedData/
-android/.gradle/
-android/build/
-android/src/main/jniLibs/
-*.so
-*.a
-*.aar
+
+# Android app build artifacts (example/android/, and the Gradle wrapper's
+# downloaded distribution)
+**/.gradle/
+**/.cxx/
+android/app/build/
+example/android/build/
+example/android/app/build/
+example/android/*/build/
 
 # Generated FFI header (verification artifact)
 /core/target/generated.h
