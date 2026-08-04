@@ -64,10 +64,11 @@ enum Command: Encodable {
     case prev
     case getState
     case seekUnit(unit: Int)
+    case seekByte(byte: Int)
     case wordBoundary(utf16Offset: Int)
 
     private enum CodingKeys: String, CodingKey {
-        case type, unit, utf16Offset
+        case type, unit, byte, utf16Offset
     }
 
     func encode(to encoder: Encoder) throws {
@@ -81,6 +82,9 @@ enum Command: Encodable {
         case let .seekUnit(unit):
             try c.encode("SeekUnit", forKey: .type)
             try c.encode(unit, forKey: .unit)
+        case let .seekByte(byte):
+            try c.encode("SeekByte", forKey: .type)
+            try c.encode(byte, forKey: .byte)
         case let .wordBoundary(offset):
             try c.encode("WordBoundary", forKey: .type)
             try c.encode(offset, forKey: .utf16Offset)

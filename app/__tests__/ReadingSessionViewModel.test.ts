@@ -57,6 +57,11 @@ class FakeTts implements AloudTts {
     this.calls.push(`seek:${unit}`);
     return this.base;
   }
+  async seekByte(byte: number) {
+    this.calls.push(`seekByte:${byte}`);
+    this.base = { ...this.base, unit: 1, utterance: "Bye." };
+    return this.base;
+  }
   async release() {
     this.calls.push("release");
   }
@@ -147,6 +152,12 @@ describe("ReadingSessionViewModel", () => {
     expect(announcer.announcements).toEqual([
       { message: "Finished reading", politeness: "assertive" },
     ]);
+  });
+
+  it("forwards a tapped byte offset to the core via seekByte", async () => {
+    await vm.seekByte(13);
+    expect(tts.calls).toContain("seekByte:13");
+    expect(vm.viewState.progressLabel).toBe("Sentence 2 of 2");
   });
 
   it("releases native resources on dispose", async () => {

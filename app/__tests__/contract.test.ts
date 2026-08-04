@@ -37,6 +37,7 @@ describe("Command ⟷ schema", () => {
     { type: "Prev" },
     { type: "GetState" },
     { type: "SeekUnit", unit: 3 },
+    { type: "SeekByte", byte: 13 },
     { type: "WordBoundary", utf16Offset: 6 },
   ];
 
@@ -90,6 +91,16 @@ describe("shared golden fixtures", () => {
     const snap = playCase.expect as Snapshot;
     expect(snap.utterance).toBe("Hello world.");
     expect(snap.highlight).toEqual({ start: 0, end: 5 });
+  });
+
+  it("the SeekByte fixture resolves to the second sentence", () => {
+    const seekCase = fixtures.cases.find(
+      (c) => c.name === "seek_byte_jumps_to_second_sentence",
+    )!;
+    assertValid(validateResponse, seekCase.expect, "response");
+    const snap = seekCase.expect as Snapshot;
+    expect(snap.unit).toBe(1);
+    expect(snap.utterance).toBe("Bye.");
   });
 
   it("the error fixture is an error envelope, not a snapshot", () => {

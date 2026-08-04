@@ -24,6 +24,20 @@
       "name": "seek_out_of_range_errors",
       "command": { "type": "SeekUnit", "unit": 99 },
       "expect_error_code": "UNIT_OUT_OF_RANGE"
+    },
+    {
+      "name": "seek_byte_jumps_to_second_sentence",
+      "note": "byte 13 falls in 'Bye.' (document 'Hello world. Bye.'); resolves to unit 1.",
+      "command": { "type": "SeekByte", "byte": 13 },
+      "expect": {
+        "status": "idle",
+        "unit": 1,
+        "unitCount": 2,
+        "token": 0,
+        "tokenCount": 1,
+        "utterance": "Bye.",
+        "highlight": null
+      }
     }
   ]
 }

@@ -2,8 +2,9 @@ import AVFoundation
 import Foundation
 // React ships as a prebuilt Swift-consumable framework module in modern RN
 // (0.79+ / React-Core-prebuilt): `RCTEventEmitter` and friends come from
-// `import React`, not a bridging header. The C-only Rust ABI still needs a
-// bridging header — see AloudTts.podspec's `SWIFT_OBJC_BRIDGING_HEADER`.
+// `import React`, not a bridging header. The C-only Rust ABI is exposed the
+// same way, as a Clang module — see AloudCore.swift's `import AloudCoreFFI`
+// and core/include/module.modulemap.
 import React
 import UIKit
 
@@ -113,6 +114,18 @@ final class AloudTtsModule: RCTEventEmitter {
         run(traceId, resolve, reject) { core in
             self.synthesizer.stopSpeaking(at: .immediate)
             let snap = try core.dispatch(.seekUnit(unit: unit.intValue))
+            self.speakCurrentUtterance(snap)
+            return snap
+        }
+    }
+
+    @objc(seekByte:traceId:resolver:rejecter:)
+    func seekByte(_ byte: NSNumber, traceId: String,
+                  resolver resolve: RCTPromiseResolveBlock,
+                  rejecter reject: RCTPromiseRejectBlock) {
+        run(traceId, resolve, reject) { core in
+            self.synthesizer.stopSpeaking(at: .immediate)
+            let snap = try core.dispatch(.seekByte(byte: byte.intValue))
             self.speakCurrentUtterance(snap)
             return snap
         }

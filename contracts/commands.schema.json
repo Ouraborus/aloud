@@ -19,6 +19,12 @@
         },
         {
           "type": "object",
+          "required": ["type", "byte"],
+          "properties": { "type": { "const": "SeekByte" }, "byte": { "type": "integer", "minimum": 0 } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
           "required": ["type", "utf16Offset"],
           "properties": { "type": { "const": "WordBoundary" }, "utf16Offset": { "type": "integer", "minimum": 0 } },
           "additionalProperties": false

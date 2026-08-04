@@ -101,6 +101,14 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun seekByte(byte: Int, traceId: String, promise: Promise) = run(traceId, promise) { core ->
+        tts?.stop()
+        val snap = core.dispatch(AloudCore.seekByte(byte))
+        speakCurrent(snap)
+        snap
+    }
+
+    @ReactMethod
     fun release(promise: Promise) {
         tts?.stop()
         tts?.shutdown()

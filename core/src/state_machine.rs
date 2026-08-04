@@ -43,6 +43,12 @@ pub enum Command {
     Prev,
     /// Jump to a specific sentence index.
     SeekUnit { unit: usize },
+    /// Jump to whichever sentence contains a document **byte offset**, and to the
+    /// word at that offset. This backs "tap a word in the reader to jump there":
+    /// the WebView reports the tapped byte, and the core resolves it to a
+    /// unit + token so no layer re-derives sentence boundaries.
+    #[serde(rename_all = "camelCase")]
+    SeekByte { byte: usize },
     /// A word-boundary report from the platform TTS engine.
     ///
     /// `utf16Offset` is the UTF-16 offset **within the current utterance** — the
@@ -118,6 +124,7 @@ impl ReadingSession {
             Command::Next => self.next(),
             Command::Prev => self.prev(),
             Command::SeekUnit { unit } => self.seek(unit)?,
+            Command::SeekByte { byte } => self.seek_byte(byte),
             Command::WordBoundary { utf16_offset } => self.word_boundary(utf16_offset),
             Command::GetState => {}
         }
@@ -176,6 +183,25 @@ impl ReadingSession {
             self.status = Status::Paused;
         }
         Ok(())
+    }
+
+    fn seek_byte(&mut self, byte: usize) {
+        if self.units.is_empty() {
+            return;
+        }
+        // The first unit whose span reaches past `byte`. A tap in the whitespace
+        // gap between two sentences maps forward to the following sentence; a tap
+        // past the end clamps to the last sentence.
+        let idx = self
+            .units
+            .iter()
+            .position(|u| byte < u.end)
+            .unwrap_or(self.units.len() - 1);
+        self.unit = idx;
+        self.token = segmentation::token_at_byte(&self.units[idx].tokens, byte).unwrap_or(0);
+        if self.status == Status::Finished {
+            self.status = Status::Paused;
+        }
     }
 
     fn word_boundary(&mut self, utf16_offset: usize) {
@@ -296,6 +322,40 @@ mod tests {
         assert_eq!(snap.status, Status::Finished);
         assert_eq!(snap.utterance, "");
         assert_eq!(snap.highlight, None);
+    }
+
+    #[test]
+    fn seek_byte_jumps_to_the_unit_and_word() {
+        let doc = "Hello world. How are you? Bye.";
+        let mut s = ReadingSession::new(doc);
+        // Tap the word "are" — resolve its document byte offset.
+        let byte = doc.find("are").unwrap();
+        let snap = s.dispatch(Command::SeekByte { byte }).unwrap();
+        assert_eq!(snap.unit, 1); // "How are you?"
+        assert_eq!(snap.utterance, "How are you?");
+        assert_eq!(snap.token, 1); // How[0] are[1] you[2]
+    }
+
+    #[test]
+    fn seek_byte_while_playing_moves_the_highlight() {
+        let doc = "Hello world. How are you? Bye.";
+        let mut s = ReadingSession::new(doc);
+        s.dispatch(Command::Play).unwrap();
+        let byte = doc.find("Bye").unwrap();
+        let snap = s.dispatch(Command::SeekByte { byte }).unwrap();
+        assert_eq!(snap.status, Status::Playing);
+        assert_eq!(snap.unit, 2);
+        let hl = snap.highlight.unwrap();
+        assert_eq!(&doc[hl.start..hl.end], "Bye");
+    }
+
+    #[test]
+    fn seek_byte_past_the_end_clamps_to_last_sentence() {
+        let doc = "One. Two.";
+        let mut s = ReadingSession::new(doc);
+        let snap = s.dispatch(Command::SeekByte { byte: 9999 }).unwrap();
+        assert_eq!(snap.unit, 1);
+        assert_eq!(snap.utterance, "Two.");
     }
 
     #[test]

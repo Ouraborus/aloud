@@ -72,6 +72,7 @@ class AloudCore(text: String) {
         fun prev() = JSONObject().put("type", "Prev")
         fun getState() = JSONObject().put("type", "GetState")
         fun seekUnit(unit: Int) = JSONObject().put("type", "SeekUnit").put("unit", unit)
+        fun seekByte(byte: Int) = JSONObject().put("type", "SeekByte").put("byte", byte)
         fun wordBoundary(utf16Offset: Int) =
             JSONObject().put("type", "WordBoundary").put("utf16Offset", utf16Offset)
 

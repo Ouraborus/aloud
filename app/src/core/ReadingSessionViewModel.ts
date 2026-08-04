@@ -114,6 +114,9 @@ export class ReadingSessionViewModel {
   prev = () => this.run("prev", (t) => this.tts.prev(t));
   seekUnit = (unit: number) =>
     this.run("seek", (t) => this.tts.seekUnit(unit, t));
+  /** Jump to the word at a document byte offset — backs tap-to-seek. */
+  seekByte = (byte: number) =>
+    this.run("seekByte", (t) => this.tts.seekByte(byte, t));
 
   /** Release native resources; call on unmount. */
   async dispose(): Promise<void> {
