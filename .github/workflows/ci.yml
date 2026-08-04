@@ -69,7 +69,17 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install (whole workspace)
-        run: npm ci
+        # `npm ci` here hits a known, long-standing npm bug with platform-
+        # specific optional dependencies (npm/cli#4828): rollup — a
+        # transitive dep of vitest, nested under app/node_modules by npm's
+        # hoisting rather than living at the root — fails with "Cannot find
+        # module @rollup/rollup-linux-x64-gnu" under `ci`'s strict,
+        # lockfile-only install, even though the lockfile lists it correctly.
+        # `npm install` performs a live resolution instead and reliably picks
+        # the right platform binary; this is the workaround npm's own error
+        # message points at. Costs a little determinism, buys a build that
+        # actually passes.
+        run: npm install
       - name: Unit + contract tests
         run: npm test --workspace=app
       - name: Type-check
