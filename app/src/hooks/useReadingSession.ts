@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { ReadingSessionViewModel } from "../core/ReadingSessionViewModel";
 import { nativeAloudTts } from "../native/AloudTts.native";
 import { platformAnnouncer } from "../a11y/PlatformAnnouncer";
+import { asyncStoragePreferenceStore } from "../native/AsyncStoragePreferenceStore";
 
 export function useReadingSession(documentText: string) {
   const vm = useMemo(
@@ -19,6 +20,7 @@ export function useReadingSession(documentText: string) {
       new ReadingSessionViewModel({
         tts: nativeAloudTts,
         announcer: platformAnnouncer,
+        store: asyncStoragePreferenceStore,
       }),
     [],
   );
@@ -34,9 +36,11 @@ export function useReadingSession(documentText: string) {
     };
   }, [vm, documentText]);
 
+  // Observe the version counter so rate changes (which don't replace the
+  // snapshot object) still re-render.
   useSyncExternalStore(
     (onChange) => vm.subscribe(onChange),
-    () => vm.getSnapshot(),
+    () => vm.getVersion(),
   );
 
   return {
@@ -47,5 +51,7 @@ export function useReadingSession(documentText: string) {
     prev: vm.prev,
     seekUnit: vm.seekUnit,
     seekByte: vm.seekByte,
+    setRate: vm.setRate,
+    stepRate: vm.stepRate,
   };
 }

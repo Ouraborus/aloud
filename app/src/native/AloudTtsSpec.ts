@@ -30,6 +30,11 @@ export interface AloudTtsCommands {
   seekUnit(unit: number, traceId: string): Promise<Snapshot>;
   /** Jump to the sentence + word containing a document byte offset (tap-to-seek). */
   seekByte(byte: number, traceId: string): Promise<Snapshot>;
+  /**
+   * Set the speech-rate multiplier (1.0 = normal). Applied to the platform TTS
+   * engine; does not touch the core. Takes effect on the next spoken sentence.
+   */
+  setRate(rate: number, traceId: string): Promise<void>;
   /** Stop the engine, release the audio session and free the core session. */
   release(): Promise<void>;
 }

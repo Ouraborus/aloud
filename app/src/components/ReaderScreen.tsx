@@ -25,7 +25,7 @@ import { useReadingSession } from "../hooks/useReadingSession";
 const READER_SOURCE = require("../webview/reader.html");
 
 export function ReaderScreen({ document: doc }: { document: string }) {
-  const { viewState, play, pause, next, prev, seekByte } = useReadingSession(doc);
+  const { viewState, play, pause, next, prev, seekByte, stepRate } = useReadingSession(doc);
   const webRef = useRef<WebView>(null);
   const playButtonRef = useRef<View>(null);
 
@@ -112,6 +112,27 @@ export function ReaderScreen({ document: doc }: { document: string }) {
           <View style={{ flex: 1 - viewState.progress }} />
         </View>
       </View>
+
+      {/* Speech rate: exposed as a single `adjustable` control so screen-reader
+          users change it with the up/down swipe gesture, plus visible +/- for
+          everyone else. */}
+      <View
+        accessibilityRole="adjustable"
+        accessibilityLabel="Reading speed"
+        accessibilityValue={{ text: viewState.rateLabel }}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === "increment") stepRate(1);
+          if (e.nativeEvent.actionName === "decrement") stepRate(-1);
+        }}
+        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+        style={styles.rateRow}
+      >
+        <ControlButton label="Slower" onPress={() => stepRate(-1)} icon="−" />
+        <Text style={styles.rateLabel} accessibilityElementsHidden importantForAccessibility="no">
+          {viewState.rateLabel}
+        </Text>
+        <ControlButton label="Faster" onPress={() => stepRate(1)} icon="+" />
+      </View>
     </View>
   );
 }
@@ -164,4 +185,12 @@ const styles = StyleSheet.create({
   progressLabel: { fontSize: 14, opacity: 0.8 },
   progressTrack: { flexDirection: "row", height: 6, borderRadius: 3, backgroundColor: "#ccc", overflow: "hidden" },
   progressFill: { backgroundColor: "#2b6cb0" },
+  rateRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 24,
+    paddingBottom: 28,
+  },
+  rateLabel: { fontSize: 16, fontVariant: ["tabular-nums"], minWidth: 56, textAlign: "center" },
 });

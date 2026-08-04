@@ -17,6 +17,13 @@ import type { Snapshot } from "../contract/types";
 import type { AloudTts } from "../native/AloudTtsSpec";
 import { announceTransition, type Announcer } from "../a11y/announce";
 import { startTrace, type Logger } from "../logging/trace";
+import {
+  clampRate,
+  noopPreferenceStore,
+  rateLabel,
+  RATE_BOUNDS,
+  type PreferenceStore,
+} from "./ReadingPreferences";
 
 const INITIAL: Snapshot = {
   status: "idle",
@@ -41,11 +48,17 @@ export interface ReaderViewState {
   /** The byte span the WebView should currently highlight (or null). */
   highlight: Snapshot["highlight"];
   utterance: string;
+  /** Current speech-rate multiplier (1.0 = normal). */
+  rate: number;
+  /** Screen-reader/UI label for the rate, e.g. "1.2×". */
+  rateLabel: string;
 }
 
 export interface ViewModelDeps {
   tts: AloudTts;
   announcer: Announcer;
+  /** Persistence for reading preferences; defaults to a no-op store. */
+  store?: PreferenceStore;
   /** Injectable for tests; defaults to console. */
   logger?: Logger;
 }
@@ -57,13 +70,20 @@ export class ReadingSessionViewModel {
   private observers = new Set<Observer>();
   private unsubscribeNative: (() => void) | undefined;
 
+  private rate: number = RATE_BOUNDS.default;
+  /** Bumped on every emit; the React binding observes this so that changes which
+   *  do NOT replace the snapshot object (e.g. rate) still trigger a re-render. */
+  private version = 0;
+
   private readonly tts: AloudTts;
   private readonly announcer: Announcer;
+  private readonly store: PreferenceStore;
   private readonly logger: Logger | undefined;
 
   constructor(deps: ViewModelDeps) {
     this.tts = deps.tts;
     this.announcer = deps.announcer;
+    this.store = deps.store ?? noopPreferenceStore;
     this.logger = deps.logger;
   }
 
@@ -76,6 +96,11 @@ export class ReadingSessionViewModel {
 
   getSnapshot(): Snapshot {
     return this.snapshot;
+  }
+
+  /** Monotonic change counter for `useSyncExternalStore` (see `version`). */
+  getVersion(): number {
+    return this.version;
   }
 
   get viewState(): ReaderViewState {
@@ -93,6 +118,8 @@ export class ReadingSessionViewModel {
       progress: s.status === "finished" ? 1 : s.unit / total,
       highlight: s.highlight,
       utterance: s.utterance,
+      rate: this.rate,
+      rateLabel: rateLabel(this.rate),
     };
   }
 
@@ -106,6 +133,11 @@ export class ReadingSessionViewModel {
     this.unsubscribeNative?.();
     this.unsubscribeNative = this.tts.subscribe((s) => this.applySnapshot(s));
     this.applySnapshot(snap);
+    // Restore the user's saved rate and apply it to the engine.
+    const saved = await this.store.getRate();
+    if (saved !== null) {
+      await this.applyRate(clampRate(saved), { persist: false, announce: false });
+    }
   }
 
   play = () => this.run("play", (t) => this.tts.play(t));
@@ -117,6 +149,16 @@ export class ReadingSessionViewModel {
   /** Jump to the word at a document byte offset — backs tap-to-seek. */
   seekByte = (byte: number) =>
     this.run("seekByte", (t) => this.tts.seekByte(byte, t));
+
+  /**
+   * Change the speech rate. Applied to the native engine, persisted, and
+   * announced politely (never during nothing — this is a user-driven action).
+   */
+  setRate = (rate: number) => this.applyRate(clampRate(rate), {});
+
+  /** Step the rate by one increment; used by the accessible +/- controls. */
+  stepRate = (direction: 1 | -1) =>
+    this.setRate(this.rate + direction * RATE_BOUNDS.step);
 
   /** Release native resources; call on unmount. */
   async dispose(): Promise<void> {
@@ -143,6 +185,26 @@ export class ReadingSessionViewModel {
     }
   }
 
+  private async applyRate(
+    rate: number,
+    opts: { persist?: boolean; announce?: boolean },
+  ): Promise<void> {
+    const { persist = true, announce = true } = opts;
+    if (rate === this.rate && persist) return; // no-op change from the UI
+    const trace = this.trace("setRate");
+    this.rate = rate;
+    await this.tts.setRate(rate, trace.id);
+    if (persist) {
+      await this.store.setRate(rate).catch((err) =>
+        trace.log("persist failed", { error: String(err) }),
+      );
+    }
+    if (announce) {
+      this.announcer.announce({ message: `Speed ${rateLabel(rate)}`, politeness: "polite" });
+    }
+    this.emit();
+  }
+
   private applySnapshot(next: Snapshot): void {
     const prev = this.snapshot;
     this.snapshot = next;
@@ -152,6 +214,7 @@ export class ReadingSessionViewModel {
   }
 
   private emit(): void {
+    this.version += 1;
     for (const o of this.observers) o();
   }
 

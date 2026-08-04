@@ -100,6 +100,20 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
         snap
     }
 
+    /**
+     * Set the speech-rate multiplier (1.0 = normal). Android's `setSpeechRate`
+     * already uses the same convention, so we pass it through (clamped) and it
+     * applies to subsequent utterances.
+     */
+    @ReactMethod
+    fun setRate(rate: Double, traceId: String, promise: Promise) {
+        activeTraceId = traceId
+        val clamped = rate.coerceIn(0.5, 2.0).toFloat()
+        tts?.setSpeechRate(clamped)
+        log("setRate", "rate=$clamped")
+        promise.resolve(null)
+    }
+
     @ReactMethod
     fun seekByte(byte: Int, traceId: String, promise: Promise) = run(traceId, promise) { core ->
         tts?.stop()

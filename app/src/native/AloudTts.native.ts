@@ -15,7 +15,8 @@ import type { AloudTts, SnapshotListener } from "./AloudTtsSpec";
 
 const LINKING_ERROR =
   "The native module 'AloudTts' is not linked. Rebuild the app after installing " +
-  "(pod install for iOS / Gradle sync for Android). See ios/README.md and android/README.md.";
+  "(pod install for iOS / Gradle sync for Android). See native/aloud-tts/ios/README.md " +
+  "and native/aloud-tts/android/README.md.";
 
 const AloudTtsNative = NativeModules.AloudTts
   ? NativeModules.AloudTts
@@ -39,6 +40,7 @@ export const nativeAloudTts: AloudTts = {
   prev: (traceId) => AloudTtsNative.prev(traceId),
   seekUnit: (unit, traceId) => AloudTtsNative.seekUnit(unit, traceId),
   seekByte: (byte, traceId) => AloudTtsNative.seekByte(byte, traceId),
+  setRate: (rate, traceId) => AloudTtsNative.setRate(rate, traceId),
   release: () => AloudTtsNative.release(),
   subscribe(listener: SnapshotListener) {
     const sub = emitter.addListener("AloudSnapshot", (snap: Snapshot) =>

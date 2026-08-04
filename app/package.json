@@ -20,7 +20,8 @@
   "peerDependencies": {
     "react": ">=18",
     "react-native": ">=0.74",
-    "react-native-webview": ">=13"
+    "react-native-webview": ">=13",
+    "@react-native-async-storage/async-storage": ">=1.23"
   },
-  "//": "react/react-native/react-native-webview/async-storage are peer deps of this package; the unit-tested modules (ViewModel, a11y policy, contract, trace) intentionally do NOT import them, so `npm test`/`npm run typecheck` run in plain Node. example/ supplies the real peers and is where the RN-dependent modules (ReaderScreen, the native adapter) actually get type-checked and run."
+  "//": "react/react-native/react-native-webview/async-storage are peer deps of this package; the unit-tested modules (ViewModel, ReadingPreferences, a11y policy, contract, trace) intentionally do NOT import them, so `npm test`/`npm run typecheck` run in plain Node. example/ supplies the real peers and is where the RN-dependent modules (ReaderScreen, the native adapter) actually get type-checked and run."
 }
