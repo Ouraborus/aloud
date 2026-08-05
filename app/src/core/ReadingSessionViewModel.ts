@@ -160,11 +160,18 @@ export class ReadingSessionViewModel {
   stepRate = (direction: 1 | -1) =>
     this.setRate(this.rate + direction * RATE_BOUNDS.step);
 
-  /** Release native resources; call on unmount. */
+  /**
+   * Release native resources; call on unmount.
+   *
+   * Deliberately does **not** clear `observers`: a subscription's lifetime
+   * belongs to whoever opened it (each `subscribe` hands back its own
+   * unsubscribe), not to the native session. Clearing them here used to leave
+   * the React binding silently detached, and it only kept working because an
+   * unstable `subscribe` identity made React re-subscribe on the next render.
+   */
   async dispose(): Promise<void> {
     this.unsubscribeNative?.();
     this.unsubscribeNative = undefined;
-    this.observers.clear();
     await this.tts.release();
   }
 

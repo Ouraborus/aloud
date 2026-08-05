@@ -7,7 +7,7 @@
  * logic stays in the ViewModel; the hook only wires it to React's lifecycle.
  */
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { ReadingSessionViewModel } from "../core/ReadingSessionViewModel";
 import { nativeAloudTts } from "../native/AloudTts.native";
@@ -25,23 +25,30 @@ export function useReadingSession(documentText: string) {
     [],
   );
 
+  // Load whenever the document changes. This effect deliberately has NO
+  // cleanup: swapping documents is not a reason to tear down the audio session
+  // and free the Rust core. `vm.load` already replaces the core session and
+  // re-points the native subscription.
   const loadedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (loadedFor.current !== documentText) {
-      loadedFor.current = documentText;
-      void vm.load(documentText);
-    }
-    return () => {
-      void vm.dispose();
-    };
+    if (loadedFor.current === documentText) return;
+    loadedFor.current = documentText;
+    void vm.load(documentText);
   }, [vm, documentText]);
 
+  // Release native resources only when the screen actually goes away. Keeping
+  // this separate from the load effect is the point: the two used to share one
+  // effect, so every document change ran `dispose()` — releasing the audio
+  // session mid-life — and then re-loaded.
+  useEffect(() => () => void vm.dispose(), [vm]);
+
   // Observe the version counter so rate changes (which don't replace the
-  // snapshot object) still re-render.
-  useSyncExternalStore(
-    (onChange) => vm.subscribe(onChange),
-    () => vm.getVersion(),
-  );
+  // snapshot object) still re-render. `subscribe` must be referentially stable:
+  // React re-subscribes whenever its identity changes, and an inline arrow
+  // changes every render.
+  const subscribe = useCallback((onChange: () => void) => vm.subscribe(onChange), [vm]);
+  const getVersion = useCallback(() => vm.getVersion(), [vm]);
+  useSyncExternalStore(subscribe, getVersion);
 
   return {
     viewState: vm.viewState,

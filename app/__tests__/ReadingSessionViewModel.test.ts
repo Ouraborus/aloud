@@ -179,6 +179,37 @@ describe("ReadingSessionViewModel", () => {
     await vm.dispose();
     expect(tts.calls).toContain("release");
   });
+
+  it("leaves subscriptions to their owners rather than clearing them on dispose", async () => {
+    // A subscription's lifetime belongs to whoever opened it — `subscribe`
+    // hands back its own unsubscribe. `dispose()` used to clear the whole
+    // observer set, which silently detached the React binding; that only kept
+    // working because an unstable `subscribe` identity made React re-subscribe
+    // on the very next render. Two unrelated pieces of code propping each other
+    // up, invisibly.
+    let notified = 0;
+    const unsubscribe = vm.subscribe(() => {
+      notified += 1;
+    });
+
+    await vm.dispose();
+    await vm.setRate(1.4);
+    expect(notified).toBeGreaterThan(0);
+
+    // ...and the owner's own unsubscribe still works.
+    const before = notified;
+    unsubscribe();
+    await vm.setRate(1.6);
+    expect(notified).toBe(before);
+  });
+
+  it("can load a new document without a dispose in between", async () => {
+    // Swapping documents must not require tearing down native resources; the
+    // hook relies on this to keep `dispose()` for unmount only.
+    await vm.load("A different document. With two sentences.");
+    expect(vm.viewState.progressLabel).toBe("Sentence 1 of 2");
+    expect(tts.calls).not.toContain("release");
+  });
 });
 
 describe("ReadingSessionViewModel — reading rate", () => {
