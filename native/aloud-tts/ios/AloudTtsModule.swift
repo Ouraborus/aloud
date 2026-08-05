@@ -25,6 +25,21 @@ final class AloudTtsModule: RCTEventEmitter {
     private var activeTraceId = "-"
     /// AVSpeechUtterance.rate to apply to future utterances (see `setRate`).
     private var currentRate = AVSpeechUtteranceDefaultSpeechRate
+    /// The exact `AVSpeechUtterance` instance we last told the synthesizer to
+    /// speak. Every delegate callback below checks the callback's `utterance`
+    /// against this by REFERENCE before touching the core.
+    ///
+    /// Why this matters: seeking (tap-to-seek, next/prev) stops the in-flight
+    /// utterance and immediately starts a new one. `stopSpeaking` does not
+    /// guarantee its delegate callback for the OLD utterance is suppressed
+    /// before the NEW one starts producing callbacks of its own — on a fast
+    /// double-seek this could otherwise feed a stale word-boundary report from
+    /// the utterance we just abandoned into the core, which would move the
+    /// highlight to the wrong word for a moment. Without this guard that shows
+    /// up as an intermittent "highlight desyncs from the audio" bug — it only
+    /// reproduces when the race is lost, which is exactly why it was
+    /// inconsistent to reproduce by hand.
+    private var currentUtterance: AVSpeechUtterance?
 
     override init() {
         super.init()
@@ -83,6 +98,7 @@ final class AloudTtsModule: RCTEventEmitter {
     func pause(_ traceId: String, resolver resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
         run(traceId, resolve, reject) { core in
             self.synthesizer.stopSpeaking(at: .word)
+            self.currentUtterance = nil
             let snap = try core.dispatch(.pause)
             self.configureAudioSession(active: false)
             return snap
@@ -151,6 +167,7 @@ final class AloudTtsModule: RCTEventEmitter {
     @objc(release:rejecter:)
     func release(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
         synthesizer.stopSpeaking(at: .immediate)
+        currentUtterance = nil
         configureAudioSession(active: false)
         core = nil // AloudCore.deinit frees the Rust session
         resolve(nil)
@@ -176,12 +193,18 @@ final class AloudTtsModule: RCTEventEmitter {
         }
     }
 
-    /// Speak the current sentence if we are in the playing state.
+    /// Speak the current sentence (or the remaining suffix of it after a
+    /// mid-sentence seek — see `Snapshot.utterance`) if we are in the playing
+    /// state.
     private func speakCurrentUtterance(_ snap: Snapshot) {
-        guard snap.status == "playing", !snap.utterance.isEmpty else { return }
+        guard snap.status == "playing", !snap.utterance.isEmpty else {
+            currentUtterance = nil
+            return
+        }
         let utterance = AVSpeechUtterance(string: snap.utterance)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = currentRate
+        currentUtterance = utterance
         synthesizer.speak(utterance)
     }
 
@@ -231,10 +254,14 @@ extension AloudTtsModule: AVSpeechSynthesizerDelegate {
     /// utterance string — exactly what the core's `WordBoundary` command wants.
     /// We feed it straight in and stream the resulting highlight to JS. No
     /// offset math happens here; that lives once, in Rust.
+    ///
+    /// The `utterance === currentUtterance` guard discards callbacks for an
+    /// utterance we've since abandoned (seeked/stopped away from) — see the
+    /// doc comment on `currentUtterance` for why this race is real.
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            willSpeakRangeOfSpeechString characterRange: NSRange,
                            utterance: AVSpeechUtterance) {
-        guard let core = core else { return }
+        guard utterance === currentUtterance, let core = core else { return }
         if let snap = try? core.dispatch(.wordBoundary(utf16Offset: characterRange.location)) {
             emit(snap)
         }
@@ -244,7 +271,7 @@ extension AloudTtsModule: AVSpeechSynthesizerDelegate {
     /// we are still playing, speak it — this is the auto-advance loop.
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                            didFinish utterance: AVSpeechUtterance) {
-        guard let core = core else { return }
+        guard utterance === currentUtterance, let core = core else { return }
         guard let snap = try? core.dispatch(.next) else { return }
         emit(snap)
         if snap.status == "playing" {

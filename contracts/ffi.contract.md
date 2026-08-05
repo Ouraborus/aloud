@@ -74,8 +74,12 @@ distinguishes by presence of the `error` key.
 }
 ```
 
-- `utterance` — the exact string the platform engine should speak for the
-  current sentence. Empty when `finished`/idle-with-no-content.
+- `utterance` — the exact string the platform engine should (re)start speaking
+  now. **Not always the full sentence** — after a mid-sentence seek (tap-to-seek
+  while playing, or resuming a paused mid-sentence position), it is the suffix
+  starting at the current word, so the native layer can hand it straight to the
+  TTS engine without re-deriving where to start. Empty when
+  `finished`/idle-with-no-content.
 - `highlight` — document byte span `[start, end)` for the WebView to light up, or
   `null` when nothing should be highlighted.
 
