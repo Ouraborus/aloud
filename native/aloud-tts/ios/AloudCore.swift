@@ -7,8 +7,17 @@ import Foundation
 /// it translates the JSON dispatch protocol into typed `Snapshot`/`CoreError`.
 ///
 /// This is the Swift end of the contract in `contracts/ffi.contract.md`.
+///
+/// ## Ownership rule (the same one AloudCore.kt implements)
+/// The session is freed **exactly once**. Here that falls out of ARC: `session`
+/// is a `let`, so it can never be reassigned, and `deinit` runs once when the
+/// last reference goes away. The Kotlin binding has no deterministic destructor,
+/// so it exposes an idempotent `release()` instead — different mechanics, same
+/// guarantee, because `aloud_core.h` states that double-freeing is undefined
+/// behaviour.
 final class AloudCore {
-    /// Opaque session pointer from `aloud_session_new`.
+    /// Opaque session pointer from `aloud_session_new`. `let`, so ARC's `deinit`
+    /// is the single path to `aloud_session_free`.
     private let session: OpaquePointer
 
     /// Engine version, surfaced for diagnostics so JS/native/Rust logs agree.
