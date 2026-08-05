@@ -2,13 +2,14 @@
   "name": "@aloud/example",
   "version": "0.0.1",
   "private": true,
-  "description": "Runnable demo host app for Aloud — a thin shell around @aloud/app + @aloud/aloud-tts, kept in this repo so `git clone` + one script gets you a running app.",
+  "description": "Runnable demo host app for Aloud \u2014 a thin shell around @aloud/app + @aloud/aloud-tts, kept in this repo so `git clone` + one script gets you a running app.",
   "scripts": {
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@aloud/app": "*",
