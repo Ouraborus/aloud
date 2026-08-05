@@ -11,27 +11,9 @@
 //! It also prints a `HIGHLIGHTS_JSON=[...]` line — the exact highlight byte
 //! ranges the core produced — which the WebView demo replays visually.
 
+use aloud_core::segmentation::utf16_word_starts;
 use aloud_core::state_machine::Command;
 use aloud_core::{ReadingSession, Status, VERSION};
-
-/// The UTF-16 offset of the first code unit of each word in `utterance` — the
-/// same thing iOS `willSpeakRangeOfSpeechString` / Android `onRangeStart` report.
-fn utf16_word_starts(utterance: &str) -> Vec<usize> {
-    let mut starts = Vec::new();
-    let mut in_word = false;
-    let mut utf16 = 0usize;
-    for c in utterance.chars() {
-        let is_word = c.is_alphanumeric() || matches!(c, '\'' | '\u{2019}' | '-');
-        if is_word && !in_word {
-            starts.push(utf16);
-            in_word = true;
-        } else if !is_word {
-            in_word = false;
-        }
-        utf16 += c.len_utf16();
-    }
-    starts
-}
 
 fn main() {
     let document = "Aloud reads to you. It highlights every word as it speaks. \

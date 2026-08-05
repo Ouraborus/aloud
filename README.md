@@ -110,7 +110,7 @@ Everything that can be verified without a device toolchain is wired into CI and
 runs locally:
 
 ```bash
-# Rust core — 34 unit + integration + invariant tests
+# Rust core — 35 unit + integration + invariant tests
 cargo test --manifest-path core/Cargo.toml
 
 # TypeScript engine — ViewModel + contract + WebView-canvas tests (plain Node, no device)
@@ -127,7 +127,7 @@ Being precise about this matters more than claiming everything works:
 
 | Layer | Status |
 |---|---|
-| Rust core (`core/`) | **Compiles, 34 tests pass**, on every push (CI) |
+| Rust core (`core/`) | **Compiles, 35 tests pass**, on every push (CI) |
 | TypeScript engine (`app/`) | **Compiles, 35 tests pass, typechecks**, on every push (CI) — including the WebView canvas, driven through its real message protocol in JSDOM |
 | RN shell (`ReaderScreen`, hook, native adapter) | **Type-checked in CI** against the real react-native peers via `example/`; not unit-tested (no renderer in the fast path) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |

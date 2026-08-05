@@ -528,7 +528,7 @@ mod tests {
 
             // Walk every word boundary in THIS utterance, exactly as the
             // platform engine would, before advancing.
-            let words = utf16_word_starts(&snap.utterance);
+            let words = segmentation::utf16_word_starts(&snap.utterance);
             for offset in words {
                 s.dispatch(Command::WordBoundary {
                     utf16_offset: offset,
@@ -543,23 +543,5 @@ mod tests {
             "did not visit every sentence exactly once"
         );
         assert_eq!(snap.status, Status::Finished);
-    }
-
-    /// Mirrors the UTF-16 word-boundary walker used in `core/examples/read_aloud.rs`.
-    fn utf16_word_starts(utterance: &str) -> Vec<usize> {
-        let mut starts = Vec::new();
-        let mut in_word = false;
-        let mut utf16 = 0usize;
-        for c in utterance.chars() {
-            let is_word = c.is_alphanumeric() || matches!(c, '\'' | '\u{2019}' | '-');
-            if is_word && !in_word {
-                starts.push(utf16);
-                in_word = true;
-            } else if !is_word {
-                in_word = false;
-            }
-            utf16 += c.len_utf16();
-        }
-        starts
     }
 }

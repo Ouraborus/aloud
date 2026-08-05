@@ -160,6 +160,35 @@ pub fn utf16_offset_to_byte(utterance: &str, utf16_offset: usize) -> usize {
     utterance.len()
 }
 
+/// The UTF-16 offset of the first code unit of each word in `utterance` — the
+/// same positions iOS `willSpeakRangeOfSpeechString` and Android
+/// `onRangeStart` report while speaking it.
+///
+/// This is the inverse direction of [`utf16_offset_to_byte`], and it exists so
+/// tests, integration tests and the runnable example can all simulate a
+/// platform TTS engine **from one definition**. It is deliberately expressed in
+/// terms of [`is_word_char`] rather than re-listing the word characters: a
+/// hand-copied simulator that drifts from the real tokenizer is the worst kind
+/// of test bug, because the suite keeps passing while modelling an engine that
+/// walks different words than the code under test.
+pub fn utf16_word_starts(utterance: &str) -> Vec<usize> {
+    let mut starts = Vec::new();
+    let mut in_word = false;
+    let mut utf16 = 0usize;
+    for c in utterance.chars() {
+        if is_word_char(c) {
+            if !in_word {
+                starts.push(utf16);
+                in_word = true;
+            }
+        } else {
+            in_word = false;
+        }
+        utf16 += c.len_utf16();
+    }
+    starts
+}
+
 /// Find the index of the token in `tokens` that contains `byte_offset`
 /// (document-global). Falls back to the nearest following token so a highlight
 /// never simply disappears when the engine reports a boundary that lands in
@@ -249,6 +278,31 @@ mod tests {
         // UTF-16 offset 3 = past the emoji (2 units) + the space (1 unit).
         assert_eq!(utf16_offset_to_byte(s, 3), 5);
         assert_eq!(&s[utf16_offset_to_byte(s, 3)..], "audio");
+    }
+
+    #[test]
+    fn utf16_word_starts_matches_the_tokens_the_segmenter_produces() {
+        // The simulator and the tokenizer must agree on what a word is — that
+        // agreement is the whole reason this lives beside `is_word_char`.
+        let doc = "It's a well-known fact. Café música 🎧 rocks.";
+        for unit in segment(doc) {
+            let text = unit.text(doc);
+            let starts = utf16_word_starts(text);
+            assert_eq!(
+                starts.len(),
+                unit.tokens.len(),
+                "simulator found a different number of words than the segmenter in {text:?}"
+            );
+            for (i, &offset) in starts.iter().enumerate() {
+                // Each simulated boundary must land on that token's first byte.
+                let byte = utf16_offset_to_byte(text, offset);
+                assert_eq!(
+                    unit.start + byte,
+                    unit.tokens[i].start,
+                    "word {i} of {text:?} starts at a different byte"
+                );
+            }
+        }
     }
 
     #[test]
