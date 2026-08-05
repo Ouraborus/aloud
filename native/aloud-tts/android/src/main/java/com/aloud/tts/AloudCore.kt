@@ -46,15 +46,37 @@ data class Snapshot(
     val highlight: Highlight?,
 )
 
+/**
+ * Owns one Rust session pointer.
+ *
+ * ## Ownership rule (the same one [AloudCore.swift] implements)
+ * The session is freed **exactly once**. Swift gets that for free from ARC via
+ * `deinit`; Kotlin has no deterministic destructor, so the caller must call
+ * [release] — but calling it more than once, or dispatching after it, must never
+ * corrupt memory. `aloud_core.h` is explicit that double-freeing is undefined
+ * behaviour, so that guarantee lives here, in the type that owns the pointer,
+ * rather than in every caller remembering to null its reference.
+ *
+ * Known limitation: there is no finalizer, so an instance dropped **without**
+ * [release] leaks the Rust session until the process exits. That is the right
+ * trade for a JNA binding — finalizers are deprecated and unreliable, and a
+ * leak is far less harmful than a free racing the GC — but it does mean
+ * `release()` is mandatory, not merely polite. [AloudTtsModule] calls it from
+ * both `release()` and `load()`.
+ */
 class AloudCore(text: String) {
-    private val session: Pointer =
+    private var session: Pointer? =
         LIB.aloud_session_new(text) ?: throw CoreException("INVALID_UTF8", "core rejected document text")
 
-    val unitCount: Int get() = LIB.aloud_session_unit_count(session)
+    /** The live pointer, or a typed error if the session was already released. */
+    private fun requireSession(): Pointer =
+        session ?: throw CoreException("NULL_POINTER", "core session has been released")
+
+    val unitCount: Int get() = LIB.aloud_session_unit_count(requireSession())
 
     /** Send a command object and decode the response into a [Snapshot]. */
     fun dispatch(command: JSONObject): Snapshot {
-        val resultPtr = LIB.aloud_session_dispatch(session, command.toString())
+        val resultPtr = LIB.aloud_session_dispatch(requireSession(), command.toString())
         try {
             val json = resultPtr.getString(0, "UTF-8")
             val obj = JSONObject(json)
@@ -69,8 +91,19 @@ class AloudCore(text: String) {
         }
     }
 
-    /** Release the Rust session. Safe to call once; do not use the core after. */
-    fun release() = LIB.aloud_session_free(session)
+    /**
+     * Release the Rust session. **Idempotent** — calling it again is a no-op,
+     * and any later use throws a typed [CoreException] instead of dereferencing
+     * a dangling pointer. Callers still should not use the core afterwards; this
+     * only guarantees that doing so fails loudly rather than corrupting memory.
+     */
+    fun release() {
+        // Clear the field first, so a concurrent or re-entrant call cannot pass
+        // the same pointer to the allocator twice.
+        val handle = session ?: return
+        session = null
+        LIB.aloud_session_free(handle)
+    }
 
     companion object {
         /** Convenience command builders, matching the Rust `#[serde(tag="type")]`. */
