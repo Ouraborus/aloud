@@ -82,3 +82,21 @@ jobs:
       # same program. No emulator or native toolchain needed.
       - name: Type-check (RN shell, via the example host app)
         run: npm run typecheck --workspace=example
+
+  swift-contract:
+    name: Swift contract (fixtures ⟷ native structs)
+    runs-on: macos-latest
+    # Closes the Swift half of the gap documented in contracts/README.md: the
+    # native structs were kept in step with the protocol by review only.
+    #
+    # This runs as a plain `swift test`, NOT via Xcode: the types under test
+    # (ios/AloudProtocol.swift) import nothing but Foundation, so no
+    # xcframework, no CocoaPods and no simulator are needed. That keeps it in
+    # the fast path — seconds, not the minutes a simulator boot costs.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Contract tests
+        working-directory: native/aloud-tts/ios
+        run: swift test
