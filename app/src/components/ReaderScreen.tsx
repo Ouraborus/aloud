@@ -24,22 +24,9 @@ import { useReadingSession } from "../hooks/useReadingSession";
 // The reader canvas assets are bundled with the app (see metro asset config).
 const READER_SOURCE = require("../webview/reader.html");
 
-/**
- * `react-native-webview@14` declares `class WebView<P = undefined>` with props
- * typed as `WebViewProps & P` — and `WebViewProps & undefined` collapses to
- * `never`, so every prop we pass fails to type-check. Instantiating `P` as an
- * empty object (the identity for intersections) restores the real prop types.
- *
- * Upstream fixed the default to `{}` in v16
- * (react-native-webview#3977); this alias goes away when we upgrade, which is
- * tracked separately because it is a major bump that needs a native rebuild.
- */
-// eslint-disable-next-line @typescript-eslint/ban-types
-type ReaderWebView = WebView<{}>;
-
 export function ReaderScreen({ document: doc }: { document: string }) {
   const { viewState, play, pause, next, prev, seekByte, stepRate } = useReadingSession(doc);
-  const webRef = useRef<ReaderWebView>(null);
+  const webRef = useRef<WebView>(null);
   const playButtonRef = useRef<View>(null);
 
   // Push document + theme into the WebView once it signals ready.
@@ -72,7 +59,7 @@ export function ReaderScreen({ document: doc }: { document: string }) {
 
   return (
     <View style={styles.root}>
-      <WebView<{}>
+      <WebView
         ref={webRef}
         source={READER_SOURCE}
         originWhitelist={["*"]}
