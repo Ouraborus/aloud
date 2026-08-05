@@ -69,12 +69,19 @@ pub unsafe extern "C" fn aloud_session_free(session: *mut ReadingSession) {
 
 /// Number of sentence units in the document, or 0 if `session` is null.
 ///
+/// Returns a **fixed-width** `u32` rather than `usize` on purpose: `usize` is
+/// pointer-width, so it is 4 bytes on `armeabi-v7a` and 8 on `arm64-v8a`. A
+/// binding that hardcodes one width — as the Kotlin/JNA one did, declaring
+/// `Long` — reads uninitialised high bits on the other. A document with more
+/// than `u32::MAX` sentences is not reachable, so the narrowing is total in
+/// practice; it saturates rather than wraps if that ever changes.
+///
 /// # Safety
 /// `session` must be a valid pointer from [`aloud_session_new`] or null.
 #[no_mangle]
-pub unsafe extern "C" fn aloud_session_unit_count(session: *const ReadingSession) -> usize {
+pub unsafe extern "C" fn aloud_session_unit_count(session: *const ReadingSession) -> u32 {
     match session.as_ref() {
-        Some(s) => s.unit_count(),
+        Some(s) => u32::try_from(s.unit_count()).unwrap_or(u32::MAX),
         None => 0,
     }
 }

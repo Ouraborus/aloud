@@ -18,7 +18,15 @@ private interface AloudCoreLib : Library {
     fun aloud_core_version(): Pointer
     fun aloud_session_new(text: String): Pointer?
     fun aloud_session_free(session: Pointer?)
-    fun aloud_session_unit_count(session: Pointer?): Long
+    /**
+     * The C ABI declares `uint32_t`, so this MUST be a 32-bit `Int` — JNA maps
+     * Kotlin `Long` to a 64-bit native integer unconditionally. It previously
+     * declared `Long` against a `size_t` return, which is 4 bytes on
+     * armeabi-v7a: JNA read 8, so the high half was whatever happened to be in
+     * the register. Correct on arm64, garbage on 32-bit. See the "fixed-width"
+     * rule in contracts/ffi.contract.md.
+     */
+    fun aloud_session_unit_count(session: Pointer?): Int
     fun aloud_session_dispatch(session: Pointer?, commandJson: String): Pointer
     fun aloud_string_free(ptr: Pointer?)
 }
@@ -42,7 +50,7 @@ class AloudCore(text: String) {
     private val session: Pointer =
         LIB.aloud_session_new(text) ?: throw CoreException("INVALID_UTF8", "core rejected document text")
 
-    val unitCount: Int get() = LIB.aloud_session_unit_count(session).toInt()
+    val unitCount: Int get() = LIB.aloud_session_unit_count(session)
 
     /** Send a command object and decode the response into a [Snapshot]. */
     fun dispatch(command: JSONObject): Snapshot {

@@ -21,13 +21,20 @@ Five functions, defined in [`core/include/aloud_core.h`](../core/include/aloud_c
 | `const char *aloud_core_version(void)` | Engine semver | Static — never freed |
 | `AloudSession *aloud_session_new(const char *text)` | Parse a document | Caller frees via `aloud_session_free` |
 | `void aloud_session_free(AloudSession *)` | Release a session | — |
-| `size_t aloud_session_unit_count(const AloudSession *)` | Sentence count | — |
+| `uint32_t aloud_session_unit_count(const AloudSession *)` | Sentence count | — |
 | `char *aloud_session_dispatch(AloudSession *, const char *cmd_json)` | Run a command | Caller frees via `aloud_string_free` |
 | `void aloud_string_free(char *)` | Free a dispatch result | — |
 
 **Rule:** New features never add C functions. They add a **command** to the JSON
 protocol below (see ADR-0002). This keeps the count of "signatures that must
 match in four languages" at effectively one: `dispatch`.
+
+**Rule:** Integer types in this surface are **fixed-width** (`uint32_t`), never
+pointer-width (`size_t`/`usize`). A pointer-width return is a different size on
+32-bit ABIs than on 64-bit ones, so a binding that hardcodes 64 bits — as the
+Kotlin/JNA one did for `unit_count` — reads garbage on `armeabi-v7a` while
+working perfectly on `arm64-v8a`. Fixed widths make every binding's declaration
+checkable by eye against this table.
 
 ## 2. The JSON protocol (what actually crosses the boundary)
 
