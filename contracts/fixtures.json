@@ -1,9 +1,10 @@
 {
-  "description": "Shared golden fixtures. Every language binding decodes/encodes these exact values in its contract test, so all four stay byte-for-byte in agreement.",
+  "description": "Shared golden fixtures for the FFI protocol. Each case is self-contained: start a fresh session on `document`, apply every command in `setup` (if any), dispatch `command`, then assert. Rust EXECUTES these over the real C ABI in core/tests/contract_fixtures.rs; TypeScript validates the expected shapes against commands.schema.json in app/__tests__/contract.test.ts.",
   "document": "Hello world. Bye.",
   "cases": [
     {
       "name": "play_lights_first_word",
+      "setup": [],
       "command": { "type": "Play" },
       "expect": {
         "status": "playing",
@@ -17,17 +18,21 @@
     },
     {
       "name": "word_boundary_moves_highlight",
+      "note": "Needs a playing session: the snapshot only carries a highlight while playing or paused, so `setup` starts playback first.",
+      "setup": [{ "type": "Play" }],
       "command": { "type": "WordBoundary", "utf16Offset": 6 },
       "expect_highlight": { "start": 6, "end": 11 }
     },
     {
       "name": "seek_out_of_range_errors",
+      "setup": [],
       "command": { "type": "SeekUnit", "unit": 99 },
       "expect_error_code": "UNIT_OUT_OF_RANGE"
     },
     {
       "name": "seek_byte_jumps_to_second_sentence",
-      "note": "byte 13 falls in 'Bye.' (document 'Hello world. Bye.'); resolves to unit 1.",
+      "note": "byte 13 falls in 'Bye.' (document 'Hello world. Bye.'); resolves to unit 1. Runs on a fresh session, so the status stays idle.",
+      "setup": [],
       "command": { "type": "SeekByte", "byte": 13 },
       "expect": {
         "status": "idle",

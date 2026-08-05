@@ -17,7 +17,7 @@ cross-platform app does, and does it with accessibility as a first-class outcome
 
 | The hard part of cross-platform mobile | How Aloud answers it |
 |---|---|
-| A feature spans JS ↔ native ↔ Rust, and **a signature mismatch is a runtime crash, not a compile error** | The FFI is **5 C functions that never grow**; features are JSON **commands** validated by a shared schema + [contract tests](contracts/) in every language |
+| A feature spans JS ↔ native ↔ Rust, and **a signature mismatch is a runtime crash, not a compile error** | The FFI is **5 C functions that never grow**; features are JSON **commands** validated by a shared schema + [golden fixtures](contracts/) the Rust core executes over the real C ABI and the TS types validate against (Swift/Kotlin parity is review-enforced today — see [`contracts/README.md`](contracts/README.md)) |
 | Reading logic gets **re-implemented and drifts** across iOS/Android/JS | Position, segmentation and highlight math live **once**, in a tested [Rust core](core/); every layer renders the same `Snapshot` |
 | Per-vendor audio/speech quirks | iOS `NSRange` and Android `onRangeStart` both report **UTF-16** offsets; the core owns the **UTF-16→UTF-8** conversion in one place ([tested](core/src/segmentation.rs)) |
 | Accessibility bolted on last | Screen-reader coordination, focus management and announcement politeness are [designed in](docs/accessibility.md) and unit-tested |
@@ -110,7 +110,7 @@ Everything that can be verified without a device toolchain is wired into CI and
 runs locally:
 
 ```bash
-# Rust core — 33 unit + integration + invariant tests
+# Rust core — 34 unit + integration + invariant tests
 cargo test --manifest-path core/Cargo.toml
 
 # TypeScript engine — ViewModel + cross-language contract tests (plain Node, no device)
@@ -123,7 +123,7 @@ Being precise about this matters more than claiming everything works:
 
 | Layer | Status |
 |---|---|
-| Rust core (`core/`) | **Compiles, 33 tests pass**, on every push (CI) |
+| Rust core (`core/`) | **Compiles, 34 tests pass**, on every push (CI) |
 | TypeScript engine (`app/`) | **Compiles, 25 tests pass, typechecks**, on every push (CI) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
 | Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
