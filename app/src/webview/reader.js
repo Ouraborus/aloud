@@ -23,6 +23,24 @@
   /** byteToChar[b] = index into docText of the char starting at byte b. */
   var byteToChar = new Int32Array(0);
 
+  // The article's DOM is built ONCE per render() as three stable children:
+  //
+  //   [beforeNode]  <mark id="aloud-current">[markTextNode]</mark>  [afterNode]
+  //
+  // Highlighting a word then only assigns three `nodeValue`s. The previous
+  // approach rebuilt `articleEl.innerHTML` from escaped slices on every word
+  // boundary, which meant an HTML re-parse and a full teardown/rebuild of the
+  // article dozens of times per second — cost that scaled with document length
+  // rather than with what actually changed (one word).
+  //
+  // Keeping the node structure fixed also removes the failure mode behind the
+  // tap-to-seek bug: the DOM no longer reshapes under the tap handler, so the
+  // Range walk in `globalCharOffset` always sees the same three children.
+  var beforeNode = null;
+  var markEl = null;
+  var markTextNode = null;
+  var afterNode = null;
+
   function postToHost(message) {
     if (window.ReactNativeWebView) {
       window.ReactNativeWebView.postMessage(JSON.stringify(message));
@@ -56,38 +74,52 @@
     return 4;
   }
 
-  function escapeHtml(s) {
-    return s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
   function render(text) {
     docText = text;
     byteToChar = buildByteMap(text);
-    articleEl.textContent = text;
+    buildArticleDom(text);
+  }
+
+  /** Create the fixed three-child structure described above. */
+  function buildArticleDom(text) {
+    beforeNode = document.createTextNode(text);
+    markTextNode = document.createTextNode("");
+    markEl = document.createElement("mark");
+    markEl.className = "aloud-word";
+    markEl.id = "aloud-current";
+    markEl.appendChild(markTextNode);
+    afterNode = document.createTextNode("");
+
+    // Text nodes carry no markup, so nothing here needs HTML-escaping — the
+    // escaping the old innerHTML path required is gone along with the parse.
+    articleEl.textContent = "";
+    articleEl.appendChild(beforeNode);
+    articleEl.appendChild(markEl);
+    articleEl.appendChild(afterNode);
   }
 
   function highlight(range) {
+    if (!markEl) return; // nothing rendered yet
     if (!range) {
-      articleEl.textContent = docText;
+      // An empty <mark> is zero-width, so this renders as plain text — the same
+      // result the old `textContent = docText` reset produced.
+      beforeNode.nodeValue = docText;
+      markTextNode.nodeValue = "";
+      afterNode.nodeValue = "";
       return;
     }
     var charStart = byteToChar[range.start];
     var charEnd = byteToChar[range.end];
+    // Out-of-range bytes read back as undefined from the typed array; leave the
+    // current highlight untouched rather than blanking it.
     if (charStart == null || charEnd == null) return;
 
-    articleEl.innerHTML =
-      escapeHtml(docText.slice(0, charStart)) +
-      '<mark class="aloud-word" id="aloud-current">' +
-      escapeHtml(docText.slice(charStart, charEnd)) +
-      "</mark>" +
-      escapeHtml(docText.slice(charEnd));
+    beforeNode.nodeValue = docText.slice(0, charStart);
+    markTextNode.nodeValue = docText.slice(charStart, charEnd);
+    afterNode.nodeValue = docText.slice(charEnd);
 
-    var mark = document.getElementById("aloud-current");
-    if (mark && mark.scrollIntoView) {
-      mark.scrollIntoView({ block: "center", inline: "nearest" });
+    if (markEl.scrollIntoView) {
+      markEl.scrollIntoView({ block: "center", inline: "nearest" });
     }
   }
 
