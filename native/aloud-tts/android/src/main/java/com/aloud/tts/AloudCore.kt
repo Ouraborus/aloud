@@ -31,21 +31,6 @@ private interface AloudCoreLib : Library {
     fun aloud_string_free(ptr: Pointer?)
 }
 
-/** A parse error surfaced from the core as a typed exception. */
-class CoreException(val code: String, override val message: String) : Exception(message)
-
-data class Highlight(val start: Int, val end: Int)
-
-data class Snapshot(
-    val status: String,
-    val unit: Int,
-    val unitCount: Int,
-    val token: Int,
-    val tokenCount: Int,
-    val utterance: String,
-    val highlight: Highlight?,
-)
-
 /**
  * Owns one Rust session pointer.
  *
@@ -106,16 +91,16 @@ class AloudCore(text: String) {
     }
 
     companion object {
-        /** Convenience command builders, matching the Rust `#[serde(tag="type")]`. */
-        fun play() = JSONObject().put("type", "Play")
-        fun pause() = JSONObject().put("type", "Pause")
-        fun next() = JSONObject().put("type", "Next")
-        fun prev() = JSONObject().put("type", "Prev")
-        fun getState() = JSONObject().put("type", "GetState")
-        fun seekUnit(unit: Int) = JSONObject().put("type", "SeekUnit").put("unit", unit)
-        fun seekByte(byte: Int) = JSONObject().put("type", "SeekByte").put("byte", byte)
-        fun wordBoundary(utf16Offset: Int) =
-            JSONObject().put("type", "WordBoundary").put("utf16Offset", utf16Offset)
+        // The builders themselves live in AloudProtocol.kt (contract-tested);
+        // these keep AloudCore's existing call sites in AloudTtsModule.kt working.
+        fun play() = AloudCommand.play()
+        fun pause() = AloudCommand.pause()
+        fun next() = AloudCommand.next()
+        fun prev() = AloudCommand.prev()
+        fun getState() = AloudCommand.getState()
+        fun seekUnit(unit: Int) = AloudCommand.seekUnit(unit)
+        fun seekByte(byte: Int) = AloudCommand.seekByte(byte)
+        fun wordBoundary(utf16Offset: Int) = AloudCommand.wordBoundary(utf16Offset)
 
         val version: String get() = LIB.aloud_core_version().getString(0, "UTF-8")
 
@@ -123,19 +108,4 @@ class AloudCore(text: String) {
             Native.load("aloud_core", AloudCoreLib::class.java)
         }
     }
-}
-
-private fun JSONObject.toSnapshot(): Snapshot {
-    val highlight = optJSONObject("highlight")?.let {
-        Highlight(it.getInt("start"), it.getInt("end"))
-    }
-    return Snapshot(
-        status = getString("status"),
-        unit = getInt("unit"),
-        unitCount = getInt("unitCount"),
-        token = getInt("token"),
-        tokenCount = getInt("tokenCount"),
-        utterance = getString("utterance"),
-        highlight = highlight,
-    )
 }

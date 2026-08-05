@@ -100,3 +100,26 @@ jobs:
       - name: Contract tests
         working-directory: native/aloud-tts/ios
         run: swift test
+
+  kotlin-contract:
+    name: Kotlin contract (fixtures ⟷ native structs)
+    runs-on: ubuntu-latest
+    # The Kotlin mirror of the Swift job above, and it needs no Android SDK or
+    # emulator: the types under test (AloudProtocol.kt) depend only on org.json.
+    #
+    # That costs no fidelity — Android's own unit tests run on the JVM against a
+    # stub android.jar whose org.json throws unless the real artifact is added,
+    # so going through the Android Gradle Plugin would exercise this same
+    # implementation, just with an SDK install on every run.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10"
+      - name: Contract tests
+        working-directory: native/aloud-tts/android/contract-tests
+        run: gradle test --no-daemon
