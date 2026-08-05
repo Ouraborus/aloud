@@ -15,7 +15,8 @@ Pod::Spec.new do |s|
   # Swift + Objective-C bridge sources. Deliberately an explicit list rather
   # than a glob over `ios/**` — that would also sweep up the xcframework's own
   # internal headers once it's built (see below) and duplicate symbols.
-  s.source_files = "ios/AloudCore.swift",
+  s.source_files = "ios/AloudProtocol.swift",
+                    "ios/AloudCore.swift",
                     "ios/AloudTtsModule.swift",
                     "ios/AloudTtsModule.m"
 

@@ -41,3 +41,7 @@ example/android/*/build/
 *.swp
 .idea/
 .vscode/
+
+# SwiftPM build output for the iOS contract-test package
+# (native/aloud-tts/ios/Package.swift — see contracts/README.md).
+native/aloud-tts/ios/.build/
