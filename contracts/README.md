@@ -27,24 +27,35 @@ about which bindings actually consume them matters more than a tidy claim, so:
 | TS / RN | [`app/__tests__/contract.test.ts`](../app/__tests__/contract.test.ts) | The TS `Command`/`Snapshot` types validate against `commands.schema.json`, and the fixtures' expected shapes validate too | ✅ in CI |
 | C header | symbol-parity job in [`ci.yml`](../.github/workflows/ci.yml) | `aloud_core.h` and the Rust `#[no_mangle]` exports declare the same symbol set | ✅ in CI |
 | Swift | [`native/aloud-tts/ios/ContractTests`](../native/aloud-tts/ios/ContractTests) | The native structs decode every fixture snapshot, `asBridgePayload()` carries exactly the keys the TS `Snapshot` declares, and every fixture command re-encodes to the same JSON tag/field names Rust's `#[serde(tag)]` expects | ✅ in CI |
-| Kotlin | — | Would prove the same for the Android structs | ❌ **not implemented** — tracked in [#10](https://github.com/Ouraborus/aloud/issues/10) |
+| Kotlin | [`android/contract-tests`](../native/aloud-tts/android/contract-tests) | The same, for the Android structs: every fixture snapshot decodes, and every fixture command re-encodes with identical tag and field names | ✅ in CI |
 
-So today **three** of four bindings are pinned to the fixture bytes. Kotlin's
-`Snapshot`/`toSnapshot` in
-[`AloudCore.kt`](../native/aloud-tts/android/src/main/java/com/aloud/tts/AloudCore.kt)
-is still kept in step by review rather than by a test.
+So **all four bindings** now assert against the fixture bytes, and the claim at
+the top of this section is one the build actually enforces.
 
-Two notes on how the Swift test is built, because they are the reason it is
-cheap enough to sit in the fast path:
+Three notes on how the native tests are built, because they are the reason they
+are cheap enough to sit in the fast path rather than behind a device runner:
 
-- The protocol types live in their own file
-  ([`AloudProtocol.swift`](../native/aloud-tts/ios/AloudProtocol.swift))
-  importing **only Foundation**, separate from the FFI wrapper that needs the
-  Rust module. So the test compiles them with a plain `swift test` — no
-  xcframework, no CocoaPods, no simulator, no Xcode project.
-- It reads `fixtures.json` by path relative to its own source file, the same way
-  Rust uses `include_str!` and TypeScript uses `import`. All three read the same
-  bytes; none of them copy the values.
+- The protocol types live in their **own file per platform**
+  ([`AloudProtocol.swift`](../native/aloud-tts/ios/AloudProtocol.swift),
+  [`AloudProtocol.kt`](../native/aloud-tts/android/src/main/java/com/aloud/tts/AloudProtocol.kt)),
+  separate from the FFI wrappers that need the Rust module. Swift imports only
+  Foundation; Kotlin depends only on `org.json`. So the tests compile them with
+  a plain `swift test` and a JVM `gradle test` — **no xcframework, no
+  CocoaPods, no Android SDK, no simulator or emulator.**
+- Every suite reads the *same* `fixtures.json`: Rust via `include_str!`,
+  TypeScript via `import`, Swift and Kotlin by locating it relative to their own
+  source. None of them copy the values — a copy is the drift these exist to
+  prevent.
+- Skipping the Android SDK costs no fidelity here: Android unit tests run on the
+  JVM against a stub `android.jar` whose `org.json` throws unless the real
+  artifact is added, so the Android Gradle Plugin route would exercise the same
+  `org.json` implementation, just slower.
+
+Each suite is verified to actually *fail* on drift, not merely to pass: see the
+"negative test" evidence on the PRs that introduced them
+([#29](https://github.com/Ouraborus/aloud/pull/29),
+[#37](https://github.com/Ouraborus/aloud/pull/37),
+[#38](https://github.com/Ouraborus/aloud/pull/38)).
 
 ### How to change the protocol
 1. Edit `commands.schema.json` and `ffi.contract.md` **first**.

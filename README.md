@@ -131,7 +131,7 @@ Being precise about this matters more than claiming everything works:
 | TypeScript engine (`app/`) | **Compiles, 37 tests pass, typechecks**, on every push (CI) — including the WebView canvas, driven through its real message protocol in JSDOM |
 | RN shell (`ReaderScreen`, hook, native adapter) | **Type-checked in CI** against the real react-native peers via `example/`; not unit-tested (no renderer in the fast path) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **7 contract tests pass in CI** (`swift test`, no simulator needed); the module itself is **built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
-| Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
+| Android native module (`native/aloud-tts/android/`) | **5 contract tests pass in CI** (JVM `gradle test`, no SDK or emulator needed); the Gradle/NDK plumbing around them is written to current RN conventions and reviewed, but **not compiled** — no JDK or Android SDK in the authoring environment |
 | Maestro E2E (`e2e/`) | Written, not run here (needs a device/CI runner) |
 
 See each layer's own README for exact commands and caveats.

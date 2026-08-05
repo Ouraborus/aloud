@@ -45,3 +45,7 @@ example/android/*/build/
 # SwiftPM build output for the iOS contract-test package
 # (native/aloud-tts/ios/Package.swift — see contracts/README.md).
 native/aloud-tts/ios/.build/
+
+# Gradle output for the Kotlin contract-test project
+native/aloud-tts/android/contract-tests/.gradle/
+native/aloud-tts/android/contract-tests/build/
