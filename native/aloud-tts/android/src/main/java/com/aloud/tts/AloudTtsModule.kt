@@ -34,6 +34,22 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     private var ready = false
     private var activeTraceId = "-"
     private var focusRequest: AudioFocusRequest? = null
+    /**
+     * The utteranceId of the most recent `speak()` call. `onRangeStart`/`onDone`
+     * below discard any callback whose id doesn't match this.
+     *
+     * Why: seeking (tap-to-seek, next/prev) stops the in-flight utterance and
+     * immediately starts a new one. `TextToSpeech.stop()` does not guarantee a
+     * callback already queued for the OLD utterance is suppressed before the NEW
+     * one starts producing its own — without this guard, a stale word-boundary
+     * report from the utterance we just abandoned could move the highlight to
+     * the wrong word for a moment (an intermittent "highlight desyncs from the
+     * audio" bug). The id must be unique per `speak()` call, not just per
+     * sentence — a seek that lands in the SAME sentence still starts a genuinely
+     * new utterance, so `"aloud-$unit"` alone can't tell old and new apart.
+     */
+    private var currentUtteranceId: String? = null
+    private var utteranceGeneration = 0
 
     private val audioManager =
         reactContext.getSystemService(ReactApplicationContext.AUDIO_SERVICE) as AudioManager
@@ -71,6 +87,7 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun pause(traceId: String, promise: Promise) = run(traceId, promise) { core ->
         tts?.stop()
+        currentUtteranceId = null
         val snap = core.dispatch(AloudCore.pause())
         abandonAudioFocus()
         snap
@@ -125,6 +142,7 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun release(promise: Promise) {
         tts?.stop()
+        currentUtteranceId = null
         tts?.shutdown()
         tts = null
         abandonAudioFocus()
@@ -164,20 +182,29 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     }
 
     private fun speakCurrent(snap: Snapshot) {
-        if (snap.status != "playing" || snap.utterance.isEmpty()) return
-        // A stable utterance id lets onDone/onRangeStart correlate to this call.
-        tts?.speak(snap.utterance, TextToSpeech.QUEUE_FLUSH, null, "aloud-${snap.unit}")
+        if (snap.status != "playing" || snap.utterance.isEmpty()) {
+            currentUtteranceId = null
+            return
+        }
+        // A unique-per-call id (not just per sentence) lets onDone/onRangeStart
+        // tell this utterance apart from one we've since abandoned mid-sentence.
+        utteranceGeneration++
+        val id = "aloud-${snap.unit}-$utteranceGeneration"
+        currentUtteranceId = id
+        tts?.speak(snap.utterance, TextToSpeech.QUEUE_FLUSH, null, id)
     }
 
     private val progressListener = object : UtteranceProgressListener() {
         /** UTF-16 code-unit index into the utterance — fed straight to the core. */
         override fun onRangeStart(utteranceId: String, start: Int, end: Int, frame: Int) {
+            if (utteranceId != currentUtteranceId) return
             val core = core ?: return
             runCatching { core.dispatch(AloudCore.wordBoundary(start)) }
                 .onSuccess { emit(it) }
         }
 
         override fun onDone(utteranceId: String) {
+            if (utteranceId != currentUtteranceId) return
             val core = core ?: return
             runCatching { core.dispatch(AloudCore.next()) }.onSuccess { snap ->
                 emit(snap)

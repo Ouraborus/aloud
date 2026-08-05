@@ -102,10 +102,24 @@
       ? document.caretRangeFromPoint(event.clientX, event.clientY)
       : null;
     if (!sel) return;
-    var charIndex = sel.startOffset;
+    var charIndex = globalCharOffset(sel);
     var byte = charToByte(charIndex);
     postToHost({ type: "wordTapped", byte: byte });
   });
+
+  // `range.startOffset` is local to whichever DOM node the tap landed in, not
+  // global to the article. Once `highlight()` has run once, the article is no
+  // longer a single text node — it's split into up to three siblings around
+  // the <mark> — so a tap inside or after the highlighted word needs the
+  // length of everything before it added back in. A Range from the top of the
+  // article to the tap point does that walk for us regardless of which node
+  // (or how many) the tap point falls in.
+  function globalCharOffset(range) {
+    var preRange = document.createRange();
+    preRange.selectNodeContents(articleEl);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    return preRange.toString().length;
+  }
 
   function charToByte(charIndex) {
     // Inverse of the byte map; linear scan is fine for a tap (not hot path).

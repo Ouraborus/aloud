@@ -81,8 +81,13 @@ pub struct Snapshot {
     pub token: usize,
     /// Total words in the current sentence.
     pub token_count: usize,
-    /// The exact text the platform engine should speak for the current sentence
-    /// (empty when idle/finished).
+    /// The exact text the platform engine should (re)start speaking now.
+    ///
+    /// This is **not always the full sentence** — after a mid-sentence seek
+    /// (tap-to-seek while playing, or resuming a paused mid-sentence position),
+    /// it is the suffix starting at the current word, so the native layer can
+    /// hand it straight to the TTS engine without re-deriving where to start.
+    /// Empty when idle/finished.
     pub utterance: String,
     /// Document byte span to highlight, or `null` when nothing should be lit.
     pub highlight: Option<Highlight>,
@@ -96,6 +101,13 @@ pub struct ReadingSession {
     status: Status,
     unit: usize,
     token: usize,
+    /// Byte offset, local to the current unit, where the utterance the native
+    /// layer was last told to speak actually begins. Normally 0 (start of the
+    /// sentence); becomes the current token's start after a mid-sentence seek,
+    /// so `word_boundary` can correctly re-base UTF-16 offsets the platform TTS
+    /// engine reports — those are relative to whatever text was actually handed
+    /// to `speak()`, not always the full sentence.
+    speaking_from: usize,
 }
 
 impl ReadingSession {
@@ -109,6 +121,7 @@ impl ReadingSession {
             status: Status::Idle,
             unit: 0,
             token: 0,
+            speaking_from: 0,
         }
     }
 
@@ -140,6 +153,10 @@ impl ReadingSession {
             self.token = 0;
         }
         self.status = Status::Playing;
+        // Resume (or start) from wherever `token` currently points — if we were
+        // paused mid-sentence, this correctly restarts from that word instead of
+        // the top of the sentence.
+        self.sync_speaking_from();
     }
 
     fn pause(&mut self) {
@@ -158,6 +175,7 @@ impl ReadingSession {
         } else {
             self.status = Status::Finished;
         }
+        self.sync_speaking_from();
     }
 
     fn prev(&mut self) {
@@ -171,6 +189,7 @@ impl ReadingSession {
         if self.status == Status::Finished {
             self.status = Status::Paused;
         }
+        self.sync_speaking_from();
     }
 
     fn seek(&mut self, unit: usize) -> Result<(), CoreError> {
@@ -182,6 +201,7 @@ impl ReadingSession {
         if self.status == Status::Finished {
             self.status = Status::Paused;
         }
+        self.sync_speaking_from();
         Ok(())
     }
 
@@ -202,17 +222,36 @@ impl ReadingSession {
         if self.status == Status::Finished {
             self.status = Status::Paused;
         }
+        // The key fix for tap-to-seek: what we hand the TTS engine next must
+        // start at the tapped word, not the top of the sentence.
+        self.sync_speaking_from();
+    }
+
+    /// Set `speaking_from` to the current token's byte offset, local to the
+    /// current unit. Call this whenever `token` changes in a way that should
+    /// cause the NEXT `speak()` to (re)start from that word, i.e. from every
+    /// command that intends to (re)start an utterance — never from
+    /// `word_boundary`, which only tracks where we already are within whatever
+    /// is already playing.
+    fn sync_speaking_from(&mut self) {
+        self.speaking_from = self
+            .units
+            .get(self.unit)
+            .and_then(|u| u.tokens.get(self.token).map(|t| t.start - u.start))
+            .unwrap_or(0);
     }
 
     fn word_boundary(&mut self, utf16_offset: usize) {
         let Some(unit) = self.units.get(self.unit) else {
             return;
         };
-        let utterance = unit.text(&self.text);
-        // UTF-16 (from the platform) -> byte offset within the utterance ...
-        let byte_in_utterance = segmentation::utf16_offset_to_byte(utterance, utf16_offset);
+        // The platform's utf16Offset is relative to whatever text we last told
+        // it to speak — that's `speaking_from..end`, not necessarily the whole
+        // sentence (see `sync_speaking_from`).
+        let speaking_text = &unit.text(&self.text)[self.speaking_from..];
+        let byte_in_speaking_text = segmentation::utf16_offset_to_byte(speaking_text, utf16_offset);
         // ... then to a document-global offset, then to a token.
-        let global_byte = unit.start + byte_in_utterance;
+        let global_byte = unit.start + self.speaking_from + byte_in_speaking_text;
         if let Some(idx) = segmentation::token_at_byte(&unit.tokens, global_byte) {
             self.token = idx;
         }
@@ -227,7 +266,7 @@ impl ReadingSession {
         let unit = self.current_unit();
 
         let utterance = if show_content {
-            unit.map(|u| u.text(&self.text).to_string())
+            unit.map(|u| u.text(&self.text)[self.speaking_from..].to_string())
                 .unwrap_or_default()
         } else {
             String::new()
@@ -332,8 +371,71 @@ mod tests {
         let byte = doc.find("are").unwrap();
         let snap = s.dispatch(Command::SeekByte { byte }).unwrap();
         assert_eq!(snap.unit, 1); // "How are you?"
-        assert_eq!(snap.utterance, "How are you?");
         assert_eq!(snap.token, 1); // How[0] are[1] you[2]
+                                   // `utterance` is what native should hand the TTS engine NEXT — the
+                                   // suffix starting at the tapped word, not the whole sentence. This is
+                                   // the fix for "tap-to-seek starts speaking from the top of the
+                                   // sentence instead of the tapped word".
+        assert_eq!(snap.utterance, "are you?");
+    }
+
+    #[test]
+    fn seek_byte_resumes_speech_from_the_tapped_word_not_the_sentence_start() {
+        // A direct regression test for the reported bug: tapping mid-sentence
+        // while playing must make the NEXT utterance start at that word.
+        let doc = "Hello world. How are you today? Bye.";
+        let mut s = ReadingSession::new(doc);
+        s.dispatch(Command::Play).unwrap();
+        let byte = doc.find("today").unwrap();
+        let snap = s.dispatch(Command::SeekByte { byte }).unwrap();
+        assert_eq!(snap.utterance, "today?");
+    }
+
+    #[test]
+    fn word_boundary_after_a_mid_sentence_seek_is_relative_to_the_new_utterance() {
+        // Once we've seeked mid-sentence, the platform TTS engine starts a NEW
+        // utterance beginning at the tapped word — so its word-boundary reports
+        // are UTF-16 offsets INTO THAT SUFFIX, not the full original sentence.
+        // If the core kept re-basing against the full sentence (the bug this
+        // guards), the highlight would land on the wrong word — exactly the
+        // "highlight desyncs from the audio" symptom that was reported.
+        let doc = "Hello world. How are you today? Bye.";
+        let mut s = ReadingSession::new(doc);
+        s.dispatch(Command::Play).unwrap();
+        let byte = doc.find("today").unwrap();
+        let snap = s.dispatch(Command::SeekByte { byte }).unwrap();
+        assert_eq!(snap.utterance, "today?");
+
+        // The engine is now speaking "today?" and reports a boundary at UTF-16
+        // offset 0 — the start of "today" within THAT utterance, not offset 18
+        // (which is where "today" would sit in the ORIGINAL full sentence).
+        let snap = s
+            .dispatch(Command::WordBoundary { utf16_offset: 0 })
+            .unwrap();
+        let hl = snap.highlight.unwrap();
+        assert_eq!(&doc[hl.start..hl.end], "today");
+    }
+
+    #[test]
+    fn play_after_pause_mid_sentence_resumes_from_that_word() {
+        // A pre-existing instance of the same class of bug: pausing mid-sentence
+        // and resuming used to always restart the sentence from byte 0 too,
+        // since `utterance` was unconditionally the full sentence text.
+        let doc = "Hello world. How are you today? Bye.";
+        let mut s = ReadingSession::new(doc);
+        s.dispatch(Command::Play).unwrap();
+        s.dispatch(Command::Next).unwrap(); // -> "How are you today?"
+                                            // Walk the word boundary to "are" (index 1) before pausing.
+        let are_offset = doc.find("are").unwrap() - doc.find("How").unwrap();
+        s.dispatch(Command::WordBoundary {
+            utf16_offset: are_offset,
+        })
+        .unwrap();
+        s.dispatch(Command::Pause).unwrap();
+
+        let snap = s.dispatch(Command::Play).unwrap();
+        assert_eq!(snap.status, Status::Playing);
+        assert_eq!(snap.utterance, "are you today?");
     }
 
     #[test]
@@ -387,5 +489,77 @@ mod tests {
         assert_eq!(snap.status, Status::Paused);
         assert_eq!(snap.token, 1);
         assert!(snap.highlight.is_some());
+    }
+
+    #[test]
+    fn full_playthrough_hands_native_the_complete_sentence_every_time() {
+        // Diagnostic for a reported "races through every sentence instantly"
+        // symptom: simulate a REAL playback loop (Play, then WordBoundary at
+        // every word exactly as the platform engine would report them, then
+        // Next when a sentence's last word is reached — mirroring
+        // AVSpeechSynthesizer's `didFinish`) and assert every utterance handed
+        // to native is the FULL sentence, never a truncated fragment. If
+        // `speaking_from` bookkeeping had a bug, this is where it would show up
+        // as a short/empty utterance instead of the real sentence text.
+        let doc = "Aloud reads to you. It highlights every word as it speaks. \
+                    The reading position lives in a shared Rust core, so iOS and \
+                    Android stay in step. Café música even works, because the core \
+                    maps UTF-16 boundaries to UTF-8. Enjoy!";
+        let mut s = ReadingSession::new(doc);
+        assert_eq!(s.unit_count(), 5);
+
+        let expected_sentences = [
+            "Aloud reads to you.",
+            "It highlights every word as it speaks.",
+            "The reading position lives in a shared Rust core, so iOS and Android stay in step.",
+            "Café música even works, because the core maps UTF-16 boundaries to UTF-8.",
+            "Enjoy!",
+        ];
+
+        let mut snap = s.dispatch(Command::Play).unwrap();
+        let mut sentences_seen = 0;
+
+        while snap.status == Status::Playing {
+            assert_eq!(
+                snap.utterance, expected_sentences[sentences_seen],
+                "sentence {sentences_seen} handed to native did not match the source text"
+            );
+            sentences_seen += 1;
+
+            // Walk every word boundary in THIS utterance, exactly as the
+            // platform engine would, before advancing.
+            let words = utf16_word_starts(&snap.utterance);
+            for offset in words {
+                s.dispatch(Command::WordBoundary {
+                    utf16_offset: offset,
+                })
+                .unwrap();
+            }
+            snap = s.dispatch(Command::Next).unwrap();
+        }
+
+        assert_eq!(
+            sentences_seen, 5,
+            "did not visit every sentence exactly once"
+        );
+        assert_eq!(snap.status, Status::Finished);
+    }
+
+    /// Mirrors the UTF-16 word-boundary walker used in `core/examples/read_aloud.rs`.
+    fn utf16_word_starts(utterance: &str) -> Vec<usize> {
+        let mut starts = Vec::new();
+        let mut in_word = false;
+        let mut utf16 = 0usize;
+        for c in utterance.chars() {
+            let is_word = c.is_alphanumeric() || matches!(c, '\'' | '\u{2019}' | '-');
+            if is_word && !in_word {
+                starts.push(utf16);
+                in_word = true;
+            } else if !is_word {
+                in_word = false;
+            }
+            utf16 += c.len_utf16();
+        }
+        starts
     }
 }
