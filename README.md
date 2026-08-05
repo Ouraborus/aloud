@@ -110,7 +110,7 @@ Everything that can be verified without a device toolchain is wired into CI and
 runs locally:
 
 ```bash
-# Rust core — 29 unit + integration + invariant tests
+# Rust core — 33 unit + integration + invariant tests
 cargo test --manifest-path core/Cargo.toml
 
 # TypeScript engine — ViewModel + cross-language contract tests (plain Node, no device)
@@ -123,7 +123,7 @@ Being precise about this matters more than claiming everything works:
 
 | Layer | Status |
 |---|---|
-| Rust core (`core/`) | **Compiles, 29 tests pass**, on every push (CI) |
+| Rust core (`core/`) | **Compiles, 33 tests pass**, on every push (CI) |
 | TypeScript engine (`app/`) | **Compiles, 25 tests pass, typechecks**, on every push (CI) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
 | Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
