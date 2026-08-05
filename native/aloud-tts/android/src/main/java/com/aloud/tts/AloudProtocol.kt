@@ -41,7 +41,7 @@ data class Snapshot(
  * the contract test asserts them against the shared fixtures.
  */
 object AloudCommand {
-    fun play(): JSONObject = JSONObject().put("type", "play")
+    fun play(): JSONObject = JSONObject().put("type", "Play")
     fun pause(): JSONObject = JSONObject().put("type", "Pause")
     fun next(): JSONObject = JSONObject().put("type", "Next")
     fun prev(): JSONObject = JSONObject().put("type", "Prev")
@@ -49,7 +49,7 @@ object AloudCommand {
     fun seekUnit(unit: Int): JSONObject = JSONObject().put("type", "SeekUnit").put("unit", unit)
     fun seekByte(byte: Int): JSONObject = JSONObject().put("type", "SeekByte").put("byte", byte)
     fun wordBoundary(utf16Offset: Int): JSONObject =
-        JSONObject().put("type", "WordBoundary").put("utf16offset", utf16Offset)
+        JSONObject().put("type", "WordBoundary").put("utf16Offset", utf16Offset)
 }
 
 /**
