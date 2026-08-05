@@ -128,7 +128,7 @@ Being precise about this matters more than claiming everything works:
 | Layer | Status |
 |---|---|
 | Rust core (`core/`) | **Compiles, 35 tests pass**, on every push (CI) |
-| TypeScript engine (`app/`) | **Compiles, 35 tests pass, typechecks**, on every push (CI) — including the WebView canvas, driven through its real message protocol in JSDOM |
+| TypeScript engine (`app/`) | **Compiles, 37 tests pass, typechecks**, on every push (CI) — including the WebView canvas, driven through its real message protocol in JSDOM |
 | RN shell (`ReaderScreen`, hook, native adapter) | **Type-checked in CI** against the real react-native peers via `example/`; not unit-tested (no renderer in the fast path) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
 | Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
