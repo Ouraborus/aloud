@@ -5,27 +5,9 @@
 //! This is the "if the state machine is wrong, the app highlights the wrong
 //! word" safety net, exercised entirely off-device.
 
+use aloud_core::segmentation::utf16_word_starts;
 use aloud_core::state_machine::Command;
 use aloud_core::{ReadingSession, Status};
-
-/// Simulate the platform TTS engine walking a sentence: it emits a word-boundary
-/// (UTF-16 offset within the utterance) at the start of each word.
-fn utf16_word_starts(utterance: &str) -> Vec<usize> {
-    let mut starts = Vec::new();
-    let mut in_word = false;
-    let mut utf16 = 0usize;
-    for c in utterance.chars() {
-        let is_word = c.is_alphanumeric() || matches!(c, '\'' | '\u{2019}' | '-');
-        if is_word && !in_word {
-            starts.push(utf16);
-            in_word = true;
-        } else if !is_word {
-            in_word = false;
-        }
-        utf16 += c.len_utf16();
-    }
-    starts
-}
 
 #[test]
 fn reads_a_full_document_and_tracks_the_highlight() {
