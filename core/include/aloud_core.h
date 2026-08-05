@@ -17,7 +17,7 @@
 #ifndef ALOUD_CORE_H
 #define ALOUD_CORE_H
 
-#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,8 +42,15 @@ AloudSession *aloud_session_new(const char *text);
 /* Release a session. Passing NULL is a no-op. Do not double-free. */
 void aloud_session_free(AloudSession *session);
 
-/* Number of sentence units in the document, or 0 if `session` is NULL. */
-size_t aloud_session_unit_count(const AloudSession *session);
+/*
+ * Number of sentence units in the document, or 0 if `session` is NULL.
+ *
+ * Deliberately uint32_t, not size_t: a pointer-width return is 4 bytes on
+ * armeabi-v7a and 8 on arm64, so a binding that assumes one width silently
+ * reads garbage on the other. See the "fixed-width" rule in
+ * contracts/ffi.contract.md.
+ */
+uint32_t aloud_session_unit_count(const AloudSession *session);
 
 /*
  * Apply a JSON command and return a newly-allocated JSON response.

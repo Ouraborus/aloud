@@ -28,8 +28,10 @@ final class AloudCore {
         aloud_session_free(session)
     }
 
+    /// The C ABI returns a fixed-width `uint32_t` (see the "fixed-width" rule in
+    /// contracts/ffi.contract.md); widen it to Swift's native `Int` at the edge.
     var unitCount: Int {
-        aloud_session_unit_count(session)
+        Int(aloud_session_unit_count(session))
     }
 
     /// Send a command and decode the response. A single choke point keeps the
