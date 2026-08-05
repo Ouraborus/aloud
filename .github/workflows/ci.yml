@@ -72,5 +72,13 @@ jobs:
         run: npm ci
       - name: Unit + contract tests
         run: npm test --workspace=app
-      - name: Type-check
+      - name: Type-check (device-independent modules)
         run: npm run typecheck --workspace=app
+      # The RN shell files (ReaderScreen, the hook, the native adapter) import
+      # react/react-native/react-native-webview, so they are excluded from the
+      # check above — which previously left them type-checked by nothing at all.
+      # `example/` is the package that supplies those real peers, and because it
+      # imports @aloud/app as TypeScript source, tsc pulls those files into the
+      # same program. No emulator or native toolchain needed.
+      - name: Type-check (RN shell, via the example host app)
+        run: npm run typecheck --workspace=example

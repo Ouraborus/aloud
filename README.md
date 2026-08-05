@@ -113,8 +113,12 @@ runs locally:
 # Rust core — 34 unit + integration + invariant tests
 cargo test --manifest-path core/Cargo.toml
 
-# TypeScript engine — ViewModel + cross-language contract tests (plain Node, no device)
+# TypeScript engine — ViewModel + contract + WebView-canvas tests (plain Node, no device)
 npm install && npm test --workspace=app
+
+# The RN shell (screen, hook, native adapter) type-checks against the real
+# react-native peers that example/ supplies — still no emulator required.
+npm run typecheck --workspace=example
 ```
 
 ## What's actually verified vs. reviewed-but-not-compiled
@@ -124,7 +128,8 @@ Being precise about this matters more than claiming everything works:
 | Layer | Status |
 |---|---|
 | Rust core (`core/`) | **Compiles, 34 tests pass**, on every push (CI) |
-| TypeScript engine (`app/`) | **Compiles, 25 tests pass, typechecks**, on every push (CI) |
+| TypeScript engine (`app/`) | **Compiles, 35 tests pass, typechecks**, on every push (CI) — including the WebView canvas, driven through its real message protocol in JSDOM |
+| RN shell (`ReaderScreen`, hook, native adapter) | **Type-checked in CI** against the real react-native peers via `example/`; not unit-tested (no renderer in the fast path) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
 | Android native module (`native/aloud-tts/android/`) | Written to current RN/Gradle/NDK conventions and reviewed, but **not compiled** in this environment (no JDK/Android SDK installed here) |
 | Maestro E2E (`e2e/`) | Written, not run here (needs a device/CI runner) |
