@@ -22,9 +22,15 @@ rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-and
 
 mkdir -p "$OUT"
 echo "==> cargo ndk build (arm64-v8a, armeabi-v7a, x86_64) -> $OUT"
+# Run from inside the crate rather than passing --manifest-path through to
+# cargo: cargo-ndk resolves the workspace with its own `cargo metadata` call in
+# the CURRENT directory before it forwards anything, so invoking this from the
+# repo root fails with "could not find Cargo.toml" no matter what the forwarded
+# arguments say. `$OUT` is absolute, so the output location is unaffected.
+cd "$CORE"
 cargo ndk \
   -t arm64-v8a -t armeabi-v7a -t x86_64 \
   -o "$OUT" \
-  build --release --manifest-path "$CORE/Cargo.toml"
+  build --release
 
 echo "==> Done. $OUT/*/libaloud_core.so is ready for Gradle."
