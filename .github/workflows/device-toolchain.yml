@@ -96,6 +96,13 @@ jobs:
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
+      # Maestro installs an XCUITest runner onto the simulator before the first
+      # command. On a cold CI runner that exceeds its default budget and fails
+      # with "iOS driver not ready in time" long before any assertion runs — a
+      # setup timeout, not a product signal. Ten minutes is generous on purpose;
+      # it costs nothing when the driver comes up quickly.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: "600000"
+      MAESTRO_CLI_NO_ANALYTICS: "1"
     steps:
       - uses: actions/checkout@v4
 
