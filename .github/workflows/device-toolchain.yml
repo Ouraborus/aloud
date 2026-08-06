@@ -128,11 +128,11 @@ jobs:
         working-directory: example/ios
         run: pod install
 
-      # Debug, not Release: the reader canvas is currently blank in Release
-      # builds because reader.js is never bundled (#40). Running E2E against
-      # Debug is a real limitation — a Debug-only flow cannot catch that class
-      # of bug, which is exactly what E2E is for — so this should switch to
-      # Release as soon as #40 lands.
+      # Release, not Debug. A Release build embeds the JS bundle, so the job
+      # needs no Metro dev server at all — no background process, no port race,
+      # no bundle warm-up. It also tests what would actually ship: #40 was a bug
+      # that ONLY existed in Release (the canvas script was never bundled), and
+      # a Debug-only E2E could not have caught it.
       - name: Build the app for the simulator
         working-directory: example/ios
         run: |
@@ -140,7 +140,7 @@ jobs:
           xcodebuild \
             -workspace AloudApp.xcworkspace \
             -scheme AloudApp \
-            -configuration Debug \
+            -configuration Release \
             -sdk iphonesimulator \
             -derivedDataPath build \
             build \
@@ -166,25 +166,10 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl list devices booted
 
-      - name: Start Metro and pre-build the bundle
-        run: |
-          set -euo pipefail
-          (cd example && npx react-native start >"$RUNNER_TEMP/metro.log" 2>&1 &)
-          for _ in $(seq 1 60); do
-            if curl -fsS http://localhost:8081/status >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          curl -fsS http://localhost:8081/status
-          # Force Metro to compile the bundle now. Otherwise the first launch
-          # pays for it and Maestro times out waiting for a blank screen.
-          curl -fsS -o /dev/null \
-            "http://localhost:8081/index.bundle?platform=ios&dev=true&minify=false"
-          echo "bundle ready"
-
       - name: Install the app
         run: |
           set -euo pipefail
-          app="example/ios/build/Build/Products/Debug-iphonesimulator/AloudApp.app"
+          app="example/ios/build/Build/Products/Release-iphonesimulator/AloudApp.app"
           test -d "$app" || { echo "::error::missing $app"; exit 1; }
           xcrun simctl install "${{ steps.sim.outputs.udid }}" "$app"
 
@@ -196,10 +181,6 @@ jobs:
 
       - name: Run the golden flow
         run: maestro test e2e/read-aloud.yaml
-
-      - name: Metro log (on failure)
-        if: failure()
-        run: tail -100 "$RUNNER_TEMP/metro.log" || true
 
       - name: Upload Maestro debug output (on failure)
         if: failure()

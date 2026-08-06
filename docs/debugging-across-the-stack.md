@@ -34,7 +34,7 @@ Reproduce, grab the trace id from the JS log, then filter every stream by it:
 Reading top-to-bottom in trace order tells you *which layer first diverged*:
 
 - If `rust` reports the right token but `webview` paints the wrong span → the bug
-  is in the byte→char mapping in `reader.js`.
+  is in the byte→char mapping in `reader.canvasjs`.
 - If `native` sends `start=` off by a word → the engine's boundary timing or the
   utterance text handed to it is wrong (a per-vendor quirk), not the core.
 - If `rust` computes the wrong token for a correct offset → the bug is in the

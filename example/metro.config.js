@@ -48,9 +48,19 @@ const workspaceRootOrigin = path.join(workspaceRoot, 'metro-resolve-origin.js');
 
 const SINGLETON_PACKAGES = ['react', 'react-native'];
 
+// The reader canvas's script must ship as a FILE next to reader.html, not be
+// compiled into the JS bundle. Metro only bundles what is `require`d, and the
+// canvas script is referenced from inside the HTML via `<script src>`, which
+// Metro cannot see — so in a Release build it was simply absent and the canvas
+// rendered blank (#40). Debug hid this because the dev server serves it off
+// disk. Giving it a non-JS extension and registering that extension as an asset
+// makes Metro copy it verbatim into the app, alongside the HTML.
+const READER_CANVAS_EXT = 'canvasjs';
+
 const config = {
   watchFolders: [workspaceRoot],
   resolver: {
+    assetExts: [...getDefaultConfig(projectRoot).resolver.assetExts, READER_CANVAS_EXT],
     unstable_enableSymlinks: true,
     nodeModulesPaths: [
       path.resolve(projectRoot, 'node_modules'),

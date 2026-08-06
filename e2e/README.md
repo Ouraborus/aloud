@@ -49,11 +49,11 @@ exactly what Maestro can see, which is rarely what the JSX suggests.
 ## In CI
 Runs on the `e2e-ios` job in
 [`device-toolchain.yml`](../.github/workflows/device-toolchain.yml) — a macOS
-runner that builds the xcframework, builds the app, boots a simulator, starts
-Metro and runs this flow. It sits in the slow workflow, not the fast path.
+runner that builds the xcframework, builds the app, boots a simulator and runs
+this flow. It sits in the slow workflow, not the fast path.
 
-**Known limitation:** the job builds **Debug**, because the reader canvas is
-currently blank in Release builds — `reader.js` is never bundled
-([#40](https://github.com/Ouraborus/aloud/issues/40)). A Debug-only E2E cannot
-catch that class of bug, which is precisely the class E2E exists to catch, so
-the job should move to Release as soon as that lands.
+The job builds **Release**, which matters for two reasons: the JS bundle is
+embedded, so no Metro dev server has to be orchestrated, and it exercises what
+would actually ship. That second point is not theoretical —
+[#40](https://github.com/Ouraborus/aloud/issues/40) was a bug that existed
+*only* in Release builds, and it was found by running this flow against one.

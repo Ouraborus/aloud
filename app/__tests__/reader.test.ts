@@ -1,5 +1,5 @@
 /**
- * Tests for the WebView reader canvas (`src/webview/reader.js`).
+ * Tests for the WebView reader canvas (`src/webview/reader.canvasjs`).
  *
  * This file is plain, dependency-free DOM JavaScript that runs inside the
  * WebView, and it owns two things that are easy to get subtly wrong and
@@ -17,6 +17,9 @@
  *
  * The module is an IIFE with no exports — it is driven exactly the way React
  * Native drives it at runtime: `message` events in, `postMessage` calls out.
+ * (The `.canvasjs` extension is not decoration: it is what makes Metro ship the
+ * file as an asset next to reader.html rather than compiling it into the JS
+ * bundle, where the `<script src>` could never reach it. See #40.)
  * Each test gets a completely fresh JSDOM so no listener or captured element
  * leaks between cases.
  */
@@ -29,7 +32,7 @@ import { JSDOM } from "jsdom";
 import { describe, it, expect } from "vitest";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const READER_JS = readFileSync(resolve(HERE, "../src/webview/reader.js"), "utf8");
+const READER_JS = readFileSync(resolve(HERE, "../src/webview/reader.canvasjs"), "utf8");
 
 /** UTF-8 byte length of `s` — the unit the Rust core speaks in. */
 function bytes(s: string): number {
