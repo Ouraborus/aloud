@@ -36,9 +36,18 @@ appId: org.reactjs.native.example.AloudApp
 # The app mounted and the WebView rendered the document handed to it by JS.
 # "Aloud reader canvas" is reader.html's <title>; the article text is the
 # document that crossed RN -> WebView via postMessage.
-- assertVisible: "Aloud reader canvas"
-- assertVisible:
-    text: "Aloud reads to you.*"
+# `extendedWaitUntil` rather than `assertVisible`: in Debug the JS bundle is
+# fetched from Metro at launch and the WebView renders after a postMessage
+# round-trip, so this content is genuinely asynchronous. A bare assert passes on
+# a warm laptop and fails on a cold CI runner — which is flakiness, not a signal.
+# The assertion is no weaker: it still fails if the content never arrives.
+- extendedWaitUntil:
+    visible: "Aloud reader canvas"
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      text: "Aloud reads to you.*"
+    timeout: 60000
 
 # The primary control is present and labelled for a screen reader.
 - assertVisible: "Play"
@@ -46,7 +55,9 @@ appId: org.reactjs.native.example.AloudApp
 # Position starts at the top of the document. This comes from the Rust core's
 # Snapshot (unit 0 of 5), rendered by the ViewModel — so it already proves the
 # load path: JS -> native -> core -> Snapshot -> back up.
-- assertVisible: "Sentence 1 of 5"
+- extendedWaitUntil:
+    visible: "Sentence 1 of 5"
+    timeout: 60000
 
 # Step forward while PAUSED. This is the deterministic half of the bridge test:
 # the tap dispatches Next into the core and the new Snapshot must come back and
