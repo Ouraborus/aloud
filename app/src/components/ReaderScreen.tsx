@@ -23,6 +23,11 @@ import { useReadingSession } from "../hooks/useReadingSession";
 
 // The reader canvas assets are bundled with the app (see metro asset config).
 const READER_SOURCE = require("../webview/reader.html");
+// The canvas's script is loaded by reader.html via `<script src>`, which Metro
+// cannot see. Requiring it here is what makes Metro copy it into the app bundle
+// next to the HTML; without this the canvas is blank in Release builds (#40).
+// The value is unused on purpose — the require IS the point.
+require("../webview/reader.canvasjs");
 
 export function ReaderScreen({ document: doc }: { document: string }) {
   const { viewState, play, pause, next, prev, seekByte, stepRate } = useReadingSession(doc);
