@@ -1,6 +1,11 @@
-pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+// NOTE ON PATHS: this repo is an npm WORKSPACE, so RN's packages are hoisted to
+// the repo-root node_modules, not example/node_modules (only `react` stays
+// local, pinned). Every path below therefore needs one more `..` than a
+// standalone RN app would use. The iOS side already does this — see
+// `../../node_modules/react-native` in example/ios/Podfile.
+pluginManagement { includeBuild("../../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'AloudApp'
 include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
+includeBuild('../../node_modules/@react-native/gradle-plugin')
