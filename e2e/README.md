@@ -1,22 +1,59 @@
 # End-to-end tests
 
-One Maestro flow, [`read-aloud.yaml`](read-aloud.yaml), exercises the full
-read-aloud path on a real device/emulator: load → play → highlight advances →
-next → pause.
+One Maestro flow, [`read-aloud.yaml`](read-aloud.yaml), exercises the read-aloud
+path on a booted simulator: the app loads, the WebView renders the document, and
+the controls drive the shared Rust core with the resulting `Snapshot` coming
+back up into the UI.
 
 ## Why just one flow
 E2E is the slowest, flakiest layer, so we keep it to a single **golden path**
-that proves the whole bridge is alive: RN → native module → Rust core → back up →
-WebView highlight. Everything else (segmentation, state transitions, the a11y
-policy, the FFI contract) is covered far more cheaply by the Rust and TS suites —
-see [`docs/testing-strategy.md`](../docs/testing-strategy.md).
+that proves the whole bridge is alive: RN → native module → Rust core → back up
+→ WebView. Everything else (segmentation, state transitions, the a11y policy,
+the FFI contract) is covered far more cheaply by the Rust, TypeScript and native
+contract suites — see [`docs/testing-strategy.md`](../docs/testing-strategy.md).
 
-## Running
+## What it asserts, and what it deliberately does not
+Every selector in the flow was taken from a real `maestro hierarchy` dump rather
+than from what the app "should" expose. Two things follow from that:
+
+- **There are no testIDs.** The controls are matched by their accessibility
+  labels, which is a feature rather than a workaround: if a label regresses, a
+  screen-reader user loses that control and this flow goes red for exactly the
+  same reason.
+- **The WebView's DOM is not addressable.** The `<mark id="aloud-current">`
+  highlight does not appear in the hierarchy, so the canvas is asserted through
+  its document title and the article text — which still proves the document
+  crossed from JS into the WebView.
+
+The flow does **not** assert that the highlight advances during playback. That
+depends on real TTS audio timing, which is not deterministic in a simulator, and
+a flaky golden path is worse than a narrow one. Word-boundary behaviour is
+covered off-device by the Rust suite and by the JSDOM tests in
+[`app/__tests__/reader.test.ts`](../app/__tests__/reader.test.ts).
+
+## Running locally
+Maestro needs a JDK (17 is fine) and a booted simulator with the app installed.
+
 ```bash
-# iOS simulator or Android emulator booted, app installed as com.aloud.example
+# once
+curl -fsSL https://get.maestro.mobile.dev | bash
+export PATH="$PATH:$HOME/.maestro/bin"
+
+# with Metro running and the app installed (see the root README's "Run it")
 maestro test e2e/read-aloud.yaml
 ```
 
+`maestro hierarchy` is the tool to reach for when an assertion fails: it prints
+exactly what Maestro can see, which is rarely what the JSX suggests.
+
 ## In CI
-This flow runs on the device-toolchain job (macOS runner with a booted
-simulator), separate from the fast Rust + JS job that runs on every push.
+Runs on the `e2e-ios` job in
+[`device-toolchain.yml`](../.github/workflows/device-toolchain.yml) — a macOS
+runner that builds the xcframework, builds the app, boots a simulator, starts
+Metro and runs this flow. It sits in the slow workflow, not the fast path.
+
+**Known limitation:** the job builds **Debug**, because the reader canvas is
+currently blank in Release builds — `reader.js` is never bundled
+([#40](https://github.com/Ouraborus/aloud/issues/40)). A Debug-only E2E cannot
+catch that class of bug, which is precisely the class E2E exists to catch, so
+the job should move to Release as soon as that lands.

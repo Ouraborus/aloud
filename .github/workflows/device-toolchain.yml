@@ -90,6 +90,125 @@ jobs:
             build \
             CODE_SIGNING_ALLOWED=NO
 
+  e2e-ios:
+    name: E2E (Maestro golden flow on a booted simulator)
+    runs-on: macos-latest
+    env:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      # Maestro installs an XCUITest runner onto the simulator before the first
+      # command. On a cold CI runner that exceeds its default budget and fails
+      # with "iOS driver not ready in time" long before any assertion runs — a
+      # setup timeout, not a product signal. Ten minutes is generous on purpose;
+      # it costs nothing when the driver comes up quickly.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: "600000"
+      MAESTRO_CLI_NO_ANALYTICS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace
+        run: npm ci
+
+      - name: Build the Rust core into an xcframework
+        run: npm run build:core:ios
+
+      - name: pod install
+        working-directory: example/ios
+        run: pod install
+
+      # Debug, not Release: the reader canvas is currently blank in Release
+      # builds because reader.js is never bundled (#40). Running E2E against
+      # Debug is a real limitation — a Debug-only flow cannot catch that class
+      # of bug, which is exactly what E2E is for — so this should switch to
+      # Release as soon as #40 lands.
+      - name: Build the app for the simulator
+        working-directory: example/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace AloudApp.xcworkspace \
+            -scheme AloudApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            build \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Boot a simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          udid=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          for runtime, devices in json.load(sys.stdin)['devices'].items():
+              if 'iOS' not in runtime:
+                  continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      print(d['udid'])
+                      raise SystemExit
+          ")
+          test -n "$udid" || { echo '::error::no available iPhone simulator'; exit 1; }
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl list devices booted
+
+      - name: Start Metro and pre-build the bundle
+        run: |
+          set -euo pipefail
+          (cd example && npx react-native start >"$RUNNER_TEMP/metro.log" 2>&1 &)
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/status >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8081/status
+          # Force Metro to compile the bundle now. Otherwise the first launch
+          # pays for it and Maestro times out waiting for a blank screen.
+          curl -fsS -o /dev/null \
+            "http://localhost:8081/index.bundle?platform=ios&dev=true&minify=false"
+          echo "bundle ready"
+
+      - name: Install the app
+        run: |
+          set -euo pipefail
+          app="example/ios/build/Build/Products/Debug-iphonesimulator/AloudApp.app"
+          test -d "$app" || { echo "::error::missing $app"; exit 1; }
+          xcrun simctl install "${{ steps.sim.outputs.udid }}" "$app"
+
+      - name: Install Maestro
+        run: |
+          set -euo pipefail
+          curl -fsSL https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the golden flow
+        run: maestro test e2e/read-aloud.yaml
+
+      - name: Metro log (on failure)
+        if: failure()
+        run: tail -100 "$RUNNER_TEMP/metro.log" || true
+
+      - name: Upload Maestro debug output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug
+          path: ~/.maestro/tests
+          if-no-files-found: ignore
+
   android:
     name: Android (cargo-ndk · gradle build)
     runs-on: ubuntu-latest
