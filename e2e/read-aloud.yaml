@@ -1,44 +1,70 @@
 # Maestro E2E — the golden read-aloud flow.
 #
-# One stable, high-value path exercised on a real device/emulator: load an
-# article, start playback, confirm the highlight advances, pause, and finish.
+# One stable, high-value path exercised on a real simulator/emulator: the app
+# loads, the WebView renders the document, and the controls drive the shared
+# Rust core with the resulting Snapshot coming back up into the UI.
+#
 # Kept deliberately small (see docs/testing-strategy.md) — E2E is here to catch a
-# dead bridge or broken wiring, not to re-test core logic that cargo already does.
+# dead bridge or broken wiring, not to re-test core logic that cargo already
+# covers far more cheaply.
+#
+# ## Why this asserts what it asserts
+# Every selector below was taken from a real `maestro hierarchy` dump, not from
+# what the app "should" expose. Two consequences worth knowing before editing:
+#
+#   * There are no testIDs in the app, so `id:` selectors match nothing. The
+#     controls are found by their accessibility labels — which is a feature, not
+#     a workaround: if a label regresses, a screen-reader user loses the control
+#     and this flow goes red for the same reason.
+#   * The WebView's DOM is not addressable (the `<mark id="aloud-current">`
+#     highlight is invisible to the hierarchy). The canvas is asserted via its
+#     document title and the article text instead, which still proves the
+#     document made it from JS into the WebView.
+#
+# The flow deliberately does NOT assert that the highlight advances during
+# playback. That depends on real TTS audio timing, which is not deterministic in
+# a simulator, and a flaky golden path is worse than a narrow one. Word-boundary
+# behaviour is covered exhaustively off-device by the Rust suite and by the
+# JSDOM tests in app/__tests__/reader.test.ts.
 #
 # Run:  maestro test e2e/read-aloud.yaml
-appId: com.aloud.example
+appId: org.reactjs.native.example.AloudApp
 ---
 - launchApp:
     clearState: true
 
-# The reader canvas and primary control are present.
+# The app mounted and the WebView rendered the document handed to it by JS.
+# "Aloud reader canvas" is reader.html's <title>; the article text is the
+# document that crossed RN -> WebView via postMessage.
+- assertVisible: "Aloud reader canvas"
 - assertVisible:
-    id: "reader-canvas"
-- assertVisible:
-    text: "Play"
+    text: "Aloud reads to you.*"
 
-# Start playback; the control flips to Pause and progress reflects sentence 1.
-- tapOn:
-    text: "Play"
-- assertVisible:
-    text: "Pause"
-- assertVisible:
-    text: "Sentence 1 of .*"
+# The primary control is present and labelled for a screen reader.
+- assertVisible: "Play"
 
-# The highlight advances: the marked word changes as speech proceeds.
-- assertVisible:
-    id: "aloud-current"
-- waitForAnimationToEnd:
-    timeout: 4000
+# Position starts at the top of the document. This comes from the Rust core's
+# Snapshot (unit 0 of 5), rendered by the ViewModel — so it already proves the
+# load path: JS -> native -> core -> Snapshot -> back up.
+- assertVisible: "Sentence 1 of 5"
 
-# Step forward a sentence via the accessible next control.
-- tapOn:
-    accessibilityText: "Next sentence"
-- assertVisible:
-    text: "Sentence 2 of .*"
+# Step forward while PAUSED. This is the deterministic half of the bridge test:
+# the tap dispatches Next into the core and the new Snapshot must come back and
+# re-render, with no audio timing involved.
+- tapOn: "Next sentence"
+- assertVisible: "Sentence 2 of 5"
 
-# Pause and confirm state.
-- tapOn:
-    text: "Pause"
-- assertVisible:
-    text: "Play"
+# ...and back, proving the core's position is genuinely bidirectional rather
+# than a counter incrementing in JS.
+- tapOn: "Previous sentence"
+- assertVisible: "Sentence 1 of 5"
+
+# Start playback. The control's label flipping to "Pause" is driven by
+# Snapshot.status coming back from the native layer, so this asserts the
+# playback path is wired end to end.
+- tapOn: "Play"
+- assertVisible: "Pause"
+
+# Stop again and confirm the state returns.
+- tapOn: "Pause"
+- assertVisible: "Play"

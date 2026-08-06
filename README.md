@@ -136,7 +136,7 @@ builds the native modules against the real artifact.
 | RN shell (`ReaderScreen`, hook, native adapter) | **Type-checked in CI** against the real react-native peers via `example/`; not unit-tested (no renderer in the fast path) |
 | iOS native module + xcframework (`native/aloud-tts/ios/`) | **Fully built in CI**: the xcframework is cross-compiled for three Apple targets and the app is built against it with `xcodebuild`; **7 contract tests pass** (`swift test`, no simulator). Also run on the iOS Simulator during development |
 | Android native module (`native/aloud-tts/android/`) | **Fully built in CI**: `cargo-ndk` cross-compiles the core for all three ABIs and `./gradlew assembleDebug` autolinks and compiles the Kotlin module against them; **5 contract tests pass** (JVM `gradle test`, no SDK or emulator). Not run on a physical device or emulator |
-| Maestro E2E (`e2e/`) | Written, **not run** — needs a booted simulator/emulator, tracked in [#10](https://github.com/Ouraborus/aloud/issues/10) |
+| Maestro E2E (`e2e/`) | **Runs in CI** on a booted iOS simulator (`e2e-ios`), asserting the load → step → play → pause path end to end. Debug build only until [#40](https://github.com/Ouraborus/aloud/issues/40) lands; no Android emulator run yet |
 
 See each layer's own README for exact commands and caveats.
 
