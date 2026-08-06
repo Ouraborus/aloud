@@ -17,7 +17,7 @@ cross-platform app does, and does it with accessibility as a first-class outcome
 
 | The hard part of cross-platform mobile | How Aloud answers it |
 |---|---|
-| A feature spans JS ↔ native ↔ Rust, and **a signature mismatch is a runtime crash, not a compile error** | The FFI is **5 C functions that never grow**; features are JSON **commands** validated by a shared schema + [golden fixtures](contracts/) the Rust core executes over the real C ABI and the TS types validate against (Swift/Kotlin parity is review-enforced today — see [`contracts/README.md`](contracts/README.md)) |
+| A feature spans JS ↔ native ↔ Rust, and **a signature mismatch is a runtime crash, not a compile error** | The FFI is **5 C functions that never grow**; features are JSON **commands** validated by a shared schema + [golden fixtures](contracts/) that **all four bindings execute against the same bytes** — Rust over the real C ABI, TypeScript against the schema, Swift and Kotlin against their native structs, every one of them in CI |
 | Reading logic gets **re-implemented and drifts** across iOS/Android/JS | Position, segmentation and highlight math live **once**, in a tested [Rust core](core/); every layer renders the same `Snapshot` |
 | Per-vendor audio/speech quirks | iOS `NSRange` and Android `onRangeStart` both report **UTF-16** offsets; the core owns the **UTF-16→UTF-8** conversion in one place ([tested](core/src/segmentation.rs)) |
 | Accessibility bolted on last | Screen-reader coordination, focus management and announcement politeness are [designed in](docs/accessibility.md) and unit-tested |
@@ -123,16 +123,20 @@ npm run typecheck --workspace=example
 
 ## What's actually verified vs. reviewed-but-not-compiled
 
-Being precise about this matters more than claiming everything works:
+Being precise about this matters more than claiming everything works. CI is
+split in two: a **fast path** that gates every push (Rust, TypeScript, and the
+Swift/Kotlin contract tests — all hermetic, under a minute), and a
+**device-toolchain** workflow that cross-compiles the core for each platform and
+builds the native modules against the real artifact.
 
 | Layer | Status |
 |---|---|
 | Rust core (`core/`) | **Compiles, 35 tests pass**, on every push (CI) |
 | TypeScript engine (`app/`) | **Compiles, 37 tests pass, typechecks**, on every push (CI) — including the WebView canvas, driven through its real message protocol in JSDOM |
 | RN shell (`ReaderScreen`, hook, native adapter) | **Type-checked in CI** against the real react-native peers via `example/`; not unit-tested (no renderer in the fast path) |
-| iOS native module + xcframework (`native/aloud-tts/ios/`) | **7 contract tests pass in CI** (`swift test`, no simulator needed); the module itself is **built and run on the iOS Simulator** during development — see the podspec, the build script, and `example/` |
-| Android native module (`native/aloud-tts/android/`) | **5 contract tests pass in CI** (JVM `gradle test`, no SDK or emulator needed); the Gradle/NDK plumbing around them is written to current RN conventions and reviewed, but **not compiled** — no JDK or Android SDK in the authoring environment |
-| Maestro E2E (`e2e/`) | Written, not run here (needs a device/CI runner) |
+| iOS native module + xcframework (`native/aloud-tts/ios/`) | **Fully built in CI**: the xcframework is cross-compiled for three Apple targets and the app is built against it with `xcodebuild`; **7 contract tests pass** (`swift test`, no simulator). Also run on the iOS Simulator during development |
+| Android native module (`native/aloud-tts/android/`) | **Fully built in CI**: `cargo-ndk` cross-compiles the core for all three ABIs and `./gradlew assembleDebug` autolinks and compiles the Kotlin module against them; **5 contract tests pass** (JVM `gradle test`, no SDK or emulator). Not run on a physical device or emulator |
+| Maestro E2E (`e2e/`) | Written, **not run** — needs a booted simulator/emulator, tracked in [#10](https://github.com/Ouraborus/aloud/issues/10) |
 
 See each layer's own README for exact commands and caveats.
 

@@ -1,5 +1,6 @@
 package com.aloud.tts
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -52,7 +53,7 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     private var utteranceGeneration = 0
 
     private val audioManager =
-        reactContext.getSystemService(ReactApplicationContext.AUDIO_SERVICE) as AudioManager
+        reactContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     override fun getName() = "AloudTts"
 
@@ -221,7 +222,7 @@ class AloudTtsModule(private val reactContext: ReactApplicationContext) :
     }
 
     private fun talkBackActive(): Boolean {
-        val am = reactContext.getSystemService(ReactApplicationContext.ACCESSIBILITY_SERVICE)
+        val am = reactContext.getSystemService(Context.ACCESSIBILITY_SERVICE)
                 as? AccessibilityManager ?: return false
         return am.isTouchExplorationEnabled
     }
